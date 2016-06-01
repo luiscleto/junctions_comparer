@@ -32,13 +32,14 @@ def read_junctions(samples, chromosomes):
             file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
             if not os.path.exists(file_name):
                 e_print("\t\t\t[WARNING] Sample " + s + " does not contain any junction reads for chromosome " + c + "!")
-            with open(file_name, 'rb') as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter='\t')
-                for row in csv_reader:
-                    junc_id = row[0] + "_" + row[1] + "_" + row[2]
-                    if junc_id not in chromosome_junctions.keys():
-                        chromosome_junctions[junc_id] = [0] * len(samples)
-                    chromosome_junctions[junc_id][sample_index] += 1
+            else:
+                with open(file_name, 'rb') as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter='\t')
+                    for row in csv_reader:
+                        junc_id = row[0] + "_" + row[1] + "_" + row[2]
+                        if junc_id not in chromosome_junctions.keys():
+                            chromosome_junctions[junc_id] = [0] * len(samples)
+                        chromosome_junctions[junc_id][sample_index] += 1
             sample_index += 1
         write_chromosome_junctions_to_file(chromosome_junctions)
         print('\t[DONE]')
