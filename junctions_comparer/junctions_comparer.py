@@ -48,7 +48,6 @@ def read_reference_genome(filename, sample_list):
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
         print_progress(num_rows, num_rows, '\t')
     print('[DONE]')
-    sys.exit(0)
 
 
 def write_chromosome_junctions_to_file(junctions):
@@ -118,7 +117,6 @@ def process_samples(file_list):
         sys.exit(-1)
     print("[DONE]")
     chromosomes = sorted(list(chromosomes_found))
-    # chromosomes = ["01", "02", "03", "04","05", "06", "07", "08","09", "10", "11", "12","13", "14", "15", "16","17", "18", "19", "20", "21", "22", "MT", "X", "Y"]
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
