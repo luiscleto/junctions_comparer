@@ -62,7 +62,7 @@ def process_samples(file_list):
         sys.exit(-1)
     chromosomes = sorted(list(chromosomes_found))
     # Per chromosome, process junctions in file and add them to .csv file
-    print("[INFO] Collecting junction information by chromossome...")
+    print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
     print("[DONE]")
     print("[INFO] Cleaning temporary files...")
