@@ -41,7 +41,7 @@ def read_junctions(samples, chromosomes):
                         if row_no % 10000 == 0:
                             print_progress(row_no, num_rows, '\t\t\t')
                         junc_id = row[0] + "_" + row[1] + "_" + row[2]
-                        if junc_id not in chromosome_junctions.keys():
+                        if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
                         chromosome_junctions[junc_id][sample_index] += 1
                         row_no += 1

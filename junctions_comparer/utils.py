@@ -56,4 +56,4 @@ def print_progress (iteration, total, prefix = '', suffix = '', decimals = 2, ba
     sys.stdout.write('\r%s [%s] %s%s %s' % (prefix, bar, percents, '%', suffix)),
     sys.stdout.flush()
     if iteration == total:
-        print("\n")
+        print("")
