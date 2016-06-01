@@ -53,9 +53,11 @@ def process_samples(file_list):
         o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)+"\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
-    chromosomes_found = []
+    chromosomes_found = set()
     for f in file_list:
-        chromosomes_found = split_csv(f, __temp_dir__)
+        print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
+        chromosomes_found.add(split_csv(f, __temp_dir__))
+        print("\t[DONE]")
     print("[DONE]")
     if len(chromosomes_found) == 0:
         e_print('\t[ERROR] No chromosomes found in junction files')
