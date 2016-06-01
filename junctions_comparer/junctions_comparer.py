@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import errno
 
 from utils import *
 
@@ -57,6 +58,11 @@ def clean_files(samples, chromosomes):
             file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
             if os.path.exists(file_name):
                 os.remove(file_name)
+    try:
+        os.rmdir(__temp_dir__)
+    except OSError as ex:
+        if ex.errno == errno.ENOTEMPTY:
+            e_print("\t[WARNING] Could not delete temporary directory! Directory not empty.")
 
 
 def process_samples(file_list):
