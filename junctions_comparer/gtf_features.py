@@ -1,7 +1,7 @@
 from utils import map_to_dict, represents_int
 
 
-class GTFIndices:
+class __GTFIndices:
     def __init__(self):
         pass
     seq_name = 0
@@ -13,6 +13,8 @@ class GTFIndices:
     strand = 6
     frame = 7
     attribute = 8
+
+GTFIndices = __GTFIndices()
 
 
 class GeneDescription:

@@ -1,17 +1,19 @@
 #!/usr/bin/python
 import errno
 
+from bed_features import BEDIndices
 from utils import *
 from gtf_features import *
 
+UNKNOWN_GENE_ID = "UNKNOWN"
 
 __temp_dir__ = "sj_tmp"
 __out_dir__ = "sj_out"
 __out_file__ = "results.csv"
 __out_delimiter__ = ","
-## strand -> chromosome -> gene_id -> GeneDescription
+## strand -> chromosome -> gene_name -> GeneDescription
 __gene_set__ = {'+': {}, '-': {}}
-## strand -> chromosome -> [(pos_start, pos_end, gene_id)]
+## strand -> chromosome -> [(pos_start, pos_end, gene_name)]
 __gene_intervals__ = {'+': {}, '-': {}}
 
 if len(sys.argv) < 4:
@@ -20,8 +22,20 @@ if len(sys.argv) < 4:
     print('\tpython junctions_comparer.py <ref_genome.gtf> <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
 
 
+def find_gene(positionS, positionE, strand, chromosome):
+    if chromosome not in __gene_intervals__[strand]:
+        return UNKNOWN_GENE_ID
+    for s,e,gene_name in __gene_intervals__[strand][chromosome]:
+        if s <= positionS < e:
+            if positionE > e:
+                e_print("[WARNING] Junction " + chromosome + "_" + positionS + "_" + positionE + " is not fully contained in gene " + gene_name)
+            return gene_name
+    return UNKNOWN_GENE_ID
+
+
 def read_reference_genome(filename, sample_list):
     global __gene_set__
+    global __gene_intervals__
     print('[INFO] Reading GTF file...')
     num_rows = file_len(filename)
     with open(filename, 'rb') as csv_file:
@@ -44,8 +58,9 @@ def read_reference_genome(filename, sample_list):
             if gen.id not in __gene_set__[gen.strand][gen.chromosome]:
                 __gene_set__[gen.strand][gen.chromosome][gen.id] = gen
                 __gene_intervals__[gen.strand][gen.chromosome].append((gen.start_position, gen.end_position, gen.id))
-            else:
-                e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
+            elif __gene_set__[gen.strand][gen.chromosome][gen.id].start_position != gen.start_position \
+                    or __gene_set__[gen.strand][gen.chromosome][gen.id].end_position != gen.end_position:
+                e_print("\t[WARNING] Duplicate gene ID found in GTF file with different positions: " + gen.id)
         print_progress(num_rows, num_rows, '\t')
     print('[DONE]')
 
@@ -76,9 +91,21 @@ def read_junctions(samples, chromosomes):
                     for row in csv_reader:
                         if row_no % 10000 == 0:
                             print_progress(row_no, num_rows, '\t\t\t')
-                        junc_id = row[0] + "_" + row[1] + "_" + row[2]
+                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.start] + "_" + row[BEDIndices.end]
                         if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
+                            gen_id = find_gene(row[BEDIndices.start],
+                                               row[BEDIndices.end],
+                                               row[BEDIndices.strand],
+                                               row[BEDIndices.chromosome])
+                            if gen_id != ("%s" % UNKNOWN_GENE_ID):
+                                gen_name = __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen_id].name
+                            else:
+                                gen_name = gen_id
+                            chromosome_junctions[junc_id].extend([gen_name, gen_id])
+                        gen_id = chromosome_junctions[junc_id][-1]
+                        if gen_id != UNKNOWN_GENE_ID:
+                            __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen_id].gene_reads_by_sample[s] += 1
                         chromosome_junctions[junc_id][sample_index] += 1
                         row_no += 1
                     print_progress(num_rows, num_rows, '\t\t\t')
@@ -104,7 +131,9 @@ def process_samples(file_list):
     # Initialize csv file
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
         samples = map(lambda sam: os.path.splitext(os.path.basename(sam))[0], file_list)
-        o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)+"\n")
+        o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)
+                + __out_delimiter__ + "gene_name"
+                +__out_delimiter__+"gene_id\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
     chromosomes_found = set()

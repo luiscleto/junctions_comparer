@@ -38,7 +38,7 @@ def split_csv(filename, output_dir):
         chromosomes_found.add(nk)
         with open(os.path.join(output_dir, os.path.splitext(os.path.basename(filename))[0] + "_%s.bed" % nk), "w+") as output:
             for row in rows:
-                output.write("\t".join(row) + "\n")
+                output.write(nk + "\t" + "\t".join(row[1:]) + "\n")
     return chromosomes_found
 
 
