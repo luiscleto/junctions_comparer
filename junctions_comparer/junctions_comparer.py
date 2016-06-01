@@ -28,7 +28,7 @@ def read_junctions(samples, chromosomes):
         chromosome_junctions = {}
         sample_index = 0
         for s in map(lambda sam: os.path.splitext(os.path.basename(sam))[0], samples):
-            print('\t\tProcessing sample ' + s + "...")
+            print('\t\tProcessing sample: ' + s + "...")
             file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
             if not os.path.exists(file_name):
                 e_print("\t\t\t[WARNING] Sample " + s + " does not contain any junction reads for chromosome " + c + "!")
