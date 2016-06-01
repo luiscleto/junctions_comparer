@@ -33,13 +33,19 @@ def read_junctions(samples, chromosomes):
             if not os.path.exists(file_name):
                 e_print("\t\t\t[WARNING] Sample " + s + " does not contain any junction reads for chromosome " + c + "!")
             else:
+                num_rows = file_len(file_name)
                 with open(file_name, 'rb') as csv_file:
                     csv_reader = csv.reader(csv_file, delimiter='\t')
+                    row_no = 0
                     for row in csv_reader:
+                        if row_no % 10000 == 0:
+                            print_progress(row_no, num_rows, '\t\t\t')
                         junc_id = row[0] + "_" + row[1] + "_" + row[2]
                         if junc_id not in chromosome_junctions.keys():
                             chromosome_junctions[junc_id] = [0] * len(samples)
                         chromosome_junctions[junc_id][sample_index] += 1
+                        row_no += 1
+                    print_progress(num_rows, num_rows, '\t\t\t')
             sample_index += 1
         write_chromosome_junctions_to_file(chromosome_junctions)
         print('\t[DONE]')
@@ -69,6 +75,7 @@ def process_samples(file_list):
         sys.exit(-1)
     print("[DONE]")
     chromosomes = sorted(list(chromosomes_found))
+    # chromosomes = ["01", "02", "03", "04","05", "06", "07", "08","09", "10", "11", "12","13", "14", "15", "16","17", "18", "19", "20", "21", "22", "MT", "X", "Y"]
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
