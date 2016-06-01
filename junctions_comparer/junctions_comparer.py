@@ -39,6 +39,13 @@ def read_junctions(samples, chromosomes):
         write_chromosome_junctions_to_file(c, chromosome_junctions)
 
 
+def clean_files(samples, chromosomes):
+    for c in chromosomes:
+        for s in map(lambda sam: os.path.splitext(os.path.basename(sam))[0], samples):
+            file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
+            os.remove(file_name)
+
+
 def process_samples(file_list):
     # Initialize csv file
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
@@ -53,10 +60,15 @@ def process_samples(file_list):
     if len(chromosomes_found) == 0:
         e_print('\t[ERROR] No chromosomes found in junction files')
         sys.exit(-1)
+    chromosomes = sorted(list(chromosomes_found))
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromossome...")
-    read_junctions(file_list, sorted(list(chromosomes_found)))
+    read_junctions(file_list, chromosomes)
     print("[DONE]")
+    print("[INFO] Cleaning temporary files...")
+    clean_files(samples, chromosomes)
+    print("[DONE]")
+    print("[INFO] Finished without (apparent) errors")
 
 
 if not os.path.exists(__temp_dir__):
