@@ -108,3 +108,5 @@ fabric.properties
 
 #junction_comparer specific
 sj_tmp
+sj_out
+real_data
