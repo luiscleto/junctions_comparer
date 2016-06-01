@@ -14,7 +14,7 @@ if len(sys.argv) < 3:
     print('\tpython junctions_comparer.py <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
 
 
-def write_chromosome_junctions_to_file(chromosome, junctions):
+def write_chromosome_junctions_to_file(junctions):
     writer = csv.writer(open(os.path.join(__out_dir__, __out_file__), 'a'), delimiter=__out_delimiter__, lineterminator='\n')
     for key, value in junctions.items():
         row = [key]
@@ -24,10 +24,14 @@ def write_chromosome_junctions_to_file(chromosome, junctions):
 
 def read_junctions(samples, chromosomes):
     for c in chromosomes:
+        print('\t[INFO] Collecting info for chromosome ' + c + "...")
         chromosome_junctions = {}
         sample_index = 0
         for s in map(lambda sam: os.path.splitext(os.path.basename(sam))[0], samples):
+            print('\t\tProcessing sample ' + s + "...")
             file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
+            if not os.path.exists(file_name):
+                e_print("\t\t\t[WARNING] Sample " + s + " does not contain any junction reads for chromosome " + c + "!")
             with open(file_name, 'rb') as csv_file:
                 csv_reader = csv.reader(csv_file, delimiter='\t')
                 for row in csv_reader:
@@ -36,7 +40,8 @@ def read_junctions(samples, chromosomes):
                         chromosome_junctions[junc_id] = [0] * len(samples)
                     chromosome_junctions[junc_id][sample_index] += 1
             sample_index += 1
-        write_chromosome_junctions_to_file(c, chromosome_junctions)
+        write_chromosome_junctions_to_file(chromosome_junctions)
+        print('\t[DONE]')
 
 
 def clean_files(samples, chromosomes):
@@ -58,10 +63,10 @@ def process_samples(file_list):
         print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
         chromosomes_found.add(split_csv(f, __temp_dir__))
         print("\t[DONE]")
-    print("[DONE]")
     if len(chromosomes_found) == 0:
         e_print('\t[ERROR] No chromosomes found in junction files')
         sys.exit(-1)
+    print("[DONE]")
     chromosomes = sorted(list(chromosomes_found))
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromosome...")
