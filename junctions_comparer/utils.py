@@ -9,6 +9,10 @@ def e_print(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
+def map_to_dict(key_function, value_function, values):
+    return dict((key_function(v), value_function(v)) for v in values)
+
+
 def file_len(file_name):
     i = 0
     with open(file_name) as f:

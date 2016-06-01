@@ -2,17 +2,53 @@
 import errno
 
 from utils import *
+from gtf_features import *
 
 
 __temp_dir__ = "sj_tmp"
 __out_dir__ = "sj_out"
 __out_file__ = "results.csv"
 __out_delimiter__ = ","
+## strand -> chromosome -> gene_id -> GeneDescription
+__gene_set__ = {'+': {}, '-': {}}
+## strand -> chromosome -> [(pos_start, pos_end, gene_id)]
+__gene_intervals__ = {'+': {}, '-': {}}
 
-if len(sys.argv) < 3:
+if len(sys.argv) < 4:
     e_print('[ERROR] Insufficient parameters provided!')
     print('Usage:')
-    print('\tpython junctions_comparer.py <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
+    print('\tpython junctions_comparer.py <ref_genome.gtf> <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
+
+
+def read_reference_genome(filename, sample_list):
+    global __gene_set__
+    print('[INFO] Reading GTF file...')
+    num_rows = file_len(filename)
+    with open(filename, 'rb') as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter='\t')
+        row_count = 0
+        for row in csv_reader:
+            if row_count % 1000 == 0:
+                print_progress(row_count, num_rows, '\t')
+            row_count += 1
+            if len(row) > 0 and str(row[0]).startswith("#"):
+                continue
+            elif len(row) == 0:
+                continue
+            elif str(row[GTFIndices.feature]) != 'gene':
+                continue
+            gen = GeneDescription(row, sample_list)
+            if gen.chromosome not in __gene_set__[gen.strand]:
+                __gene_set__[gen.strand][gen.chromosome] = {}
+                __gene_intervals__[gen.strand][gen.chromosome] = list()
+            if gen.id not in __gene_set__[gen.strand][gen.chromosome]:
+                __gene_set__[gen.strand][gen.chromosome][gen.id] = gen
+                __gene_intervals__[gen.strand][gen.chromosome].append((gen.start_position, gen.end_position, gen.id))
+            else:
+                e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
+        print_progress(num_rows, num_rows, '\t')
+    print('[DONE]')
+    sys.exit(0)
 
 
 def write_chromosome_junctions_to_file(junctions):
@@ -97,4 +133,5 @@ if not os.path.exists(__temp_dir__):
     os.makedirs(__temp_dir__)
 if not os.path.exists(__out_dir__):
     os.makedirs(__out_dir__)
-process_samples(sorted(sys.argv[1:]))
+read_reference_genome(sys.argv[1], map(lambda sam: os.path.splitext(os.path.basename(sam))[0],sys.argv[2:]))
+process_samples(sorted(sys.argv[2:]))
