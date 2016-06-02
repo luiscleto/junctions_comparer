@@ -11,10 +11,12 @@ __temp_dir__ = "sj_tmp"
 __out_dir__ = "sj_out"
 __out_file__ = "results.csv"
 __out_delimiter__ = ","
-## strand -> chromosome -> gene_name -> GeneDescription
+## strand -> chromosome -> gene_id -> GeneDescription
 __gene_set__ = {'+': {}, '-': {}}
-## strand -> chromosome -> [(pos_start, pos_end, gene_name)]
+## strand -> chromosome -> [(pos_start, pos_end, gene_id)]
 __gene_intervals__ = {'+': {}, '-': {}}
+## sample -> unknown_read_count
+__unknown_reads_per_sample__ = {}
 
 if len(sys.argv) < 4:
     e_print('[ERROR] Insufficient parameters provided!')
@@ -106,6 +108,8 @@ def read_junctions(samples, chromosomes):
                         gen_id = chromosome_junctions[junc_id][-1]
                         if gen_id != UNKNOWN_GENE_ID:
                             __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen_id].gene_reads_by_sample[s] += 1
+                        else:
+                            __unknown_reads_per_sample__[s] += 1
                         chromosome_junctions[junc_id][sample_index] += 1
                         row_no += 1
                     print_progress(num_rows, num_rows, '\t\t\t')
@@ -127,10 +131,33 @@ def clean_files(samples, chromosomes):
             e_print("\t[WARNING] Could not delete temporary directory! Directory not empty.")
 
 
+def write_summary(samples):
+    total_reads_per_sample = map_to_dict(lambda x:x, lambda _:0, samples)
+    file_handlers = map_to_dict(lambda x:x, lambda y:open(os.path.join(__out_dir__, y + ".read_counts.txt"),"w+"), samples)
+    for k, f in file_handlers.items():
+        f.write("##Summary for sample " + k + "\n")
+        f.write("##This file indicates the number of reads in this sample (of junctions) that mapped to a certain gene as well as the TOTAL_READS value\n")
+        f.write("##Format: <gene_id>=<number_of_reads>\n")
+    for strand_to_chromosomes in __gene_set__.values():
+        for id_to_gene in strand_to_chromosomes.values():
+            for gene_id, gen in id_to_gene.items():
+                for sample, count in gen.gene_reads_by_sample.items():
+                    file_handlers[sample].write(gene_id+"="+str(count) + "\n")
+                    total_reads_per_sample[sample] += count
+    for sample, count in __unknown_reads_per_sample__.items():
+        file_handlers[sample].write("UNKNOWN=" + str(count) + "\n")
+        total_reads_per_sample[sample] += count
+    for k, f in file_handlers.items():
+        f.write("TOTAL_READS="+str(total_reads_per_sample[k])+"\n")
+        f.close()
+
+
 def process_samples(file_list):
     # Initialize csv file
+    samples = map(lambda sam: os.path.splitext(os.path.basename(sam))[0], file_list)
+    global __unknown_reads_per_sample__
+    __unknown_reads_per_sample__ = map_to_dict(lambda x:x, lambda _:0, samples)
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
-        samples = map(lambda sam: os.path.splitext(os.path.basename(sam))[0], file_list)
         o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)
                 + __out_delimiter__ + "gene_name"
                 +__out_delimiter__+"gene_id\n")
@@ -150,6 +177,11 @@ def process_samples(file_list):
     print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
     print("[DONE]")
+    # Save summary for each sample
+    print("[INFO] Summarizing read counts...")
+    write_summary(samples)
+    print("[DONE]")
+    # Delete temporary files
     print("[INFO] Cleaning temporary files...")
     clean_files(samples, chromosomes)
     print("[DONE]")
