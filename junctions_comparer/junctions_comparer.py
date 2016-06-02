@@ -142,11 +142,13 @@ def write_summary(samples):
         for id_to_gene in strand_to_chromosomes.values():
             for gene_id, gen in id_to_gene.items():
                 for sample, count in gen.gene_reads_by_sample.items():
-                    file_handlers[sample].write(gene_id+"="+str(count) + "\n")
-                    total_reads_per_sample[sample] += count
+                    if count > 0:
+                        file_handlers[sample].write(gene_id+"="+str(count) + "\n")
+                        total_reads_per_sample[sample] += count
     for sample, count in __unknown_reads_per_sample__.items():
-        file_handlers[sample].write("UNKNOWN=" + str(count) + "\n")
-        total_reads_per_sample[sample] += count
+        if count > 0:
+            file_handlers[sample].write("UNKNOWN=" + str(count) + "\n")
+            total_reads_per_sample[sample] += count
     for k, f in file_handlers.items():
         f.write("TOTAL_READS="+str(total_reads_per_sample[k])+"\n")
         f.close()
