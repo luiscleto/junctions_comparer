@@ -61,6 +61,8 @@ def read_reference_genome(filename, sample_list):
             elif __gene_set__[gen.chromosome][gen.id].start_position != gen.start_position \
                     or __gene_set__[gen.chromosome][gen.id].end_position != gen.end_position:
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file with different positions: " + gen.id)
+            else:
+                e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
         print_progress(num_rows, num_rows, '\t')
     print('[DONE]')
 
