@@ -23,8 +23,8 @@ class GeneDescription:
         self.name = "unnamed" if "gene_name" not in attr_map else attr_map["gene_name"]
         self.id = "unknown" if "gene_id" not in attr_map else attr_map["gene_id"]
         self.id = self.id.split(".")[0]
-        self.start_position = row[GTFIndices.start]
-        self.end_position = row[GTFIndices.end]
+        self.start_position = int(row[GTFIndices.start])
+        self.end_position = int(row[GTFIndices.end])
         self.gene_reads_by_sample = map_to_dict(lambda x:x, lambda _:0, sample_list)
         self.strand = row[GTFIndices.strand]
         self.chromosome = str(row[GTFIndices.seq_name]).replace("chr", "")

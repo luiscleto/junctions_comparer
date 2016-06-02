@@ -11,11 +11,12 @@ __temp_dir__ = "sj_tmp"
 __out_dir__ = "sj_out"
 __out_file__ = "results.csv"
 __out_delimiter__ = ","
-## chromosome -> gene_id -> GeneDescription
-__gene_set__ = {}
-## chromosome -> [(pos_start, pos_end, gene_id)]
-__gene_intervals__ = {}
-## unknown_read_count
+__gene_list_delimiter__ = "|"
+## strand -> chromosome -> gene_id -> GeneDescription
+__gene_set__ = {'+': {}, '-': {}}
+## strand -> chromosome -> [(pos_start, pos_end, gene_id)]
+__gene_intervals__ = {'+': {}, '-': {}}
+## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
 
 if len(sys.argv) < 4:
@@ -24,13 +25,16 @@ if len(sys.argv) < 4:
     print('\tpython junctions_comparer.py <ref_genome.gtf> <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
 
 
-def find_gene(positionS, chromosome):
-    if chromosome not in __gene_intervals__:
-        return UNKNOWN_GENE_ID
-    for s,e,gene_name in __gene_intervals__[chromosome]:
-        if s <= positionS < e:
-            return gene_name
-    return UNKNOWN_GENE_ID
+def find_gene(position_s, chromosome, strand):
+    if chromosome not in __gene_intervals__[strand]:
+        return [UNKNOWN_GENE_ID]
+    gene_set = []
+    for s,e,gene_id in __gene_intervals__[strand][chromosome]:
+        if s <= position_s <= e:
+            gene_set.append(gene_id)
+    if len(gene_set) == 0:
+        return [UNKNOWN_GENE_ID]
+    return gene_set
 
 
 def read_reference_genome(filename, sample_list):
@@ -52,14 +56,14 @@ def read_reference_genome(filename, sample_list):
             elif str(row[GTFIndices.feature]) != 'gene':
                 continue
             gen = GeneDescription(row, sample_list)
-            if gen.chromosome not in __gene_set__:
-                __gene_set__[gen.chromosome] = {}
-                __gene_intervals__[gen.chromosome] = list()
-            if gen.id not in __gene_set__[gen.chromosome]:
-                __gene_set__[gen.chromosome][gen.id] = gen
-                __gene_intervals__[gen.chromosome].append((gen.start_position, gen.end_position, gen.id))
-            elif __gene_set__[gen.chromosome][gen.id].start_position != gen.start_position \
-                    or __gene_set__[gen.chromosome][gen.id].end_position != gen.end_position:
+            if gen.chromosome not in __gene_set__[gen.strand]:
+                __gene_set__[gen.strand][gen.chromosome] = {}
+                __gene_intervals__[gen.strand][gen.chromosome] = list()
+            if gen.id not in __gene_set__[gen.strand][gen.chromosome]:
+                __gene_set__[gen.strand][gen.chromosome][gen.id] = gen
+                __gene_intervals__[gen.strand][gen.chromosome].append((gen.start_position, gen.end_position, gen.id))
+            elif __gene_set__[gen.strand][gen.chromosome][gen.id].start_position != gen.start_position \
+                    or __gene_set__[gen.strand][gen.chromosome][gen.id].end_position != gen.end_position:
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file with different positions: " + gen.id)
             else:
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
@@ -93,28 +97,24 @@ def read_junctions(samples, chromosomes):
                     for row in csv_reader:
                         if row_no % 10000 == 0:
                             print_progress(row_no, num_rows, '\t\t\t')
-                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.start] + "_" + row[BEDIndices.end]
+                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + row[BEDIndices.start] + "_" + row[BEDIndices.end]
                         if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
-                            gen1_id = find_gene(row[BEDIndices.start], row[BEDIndices.chromosome])
-                            gen2_id = find_gene(row[BEDIndices.end], row[BEDIndices.chromosome])
-                            if gen1_id != ("%s" % UNKNOWN_GENE_ID):
-                                gen1_name = __gene_set__[row[BEDIndices.chromosome]][gen1_id].name
+                            gen1_ids = find_gene(int(row[BEDIndices.start]), row[BEDIndices.chromosome], row[BEDIndices.strand])
+                            gen2_ids = find_gene(int(row[BEDIndices.end]), row[BEDIndices.chromosome], row[BEDIndices.strand])
+                            chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids), __gene_list_delimiter__.join(gen2_ids)])
+                        gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
+                        gen2_ids = chromosome_junctions[junc_id][-1].split(__gene_list_delimiter__)
+                        for gen1_id in gen1_ids:
+                            if gen1_id != UNKNOWN_GENE_ID:
+                                __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
                             else:
-                                gen1_name = gen1_id
-                            if gen2_id != ("%s" % UNKNOWN_GENE_ID):
-                                gen2_name = __gene_set__[row[BEDIndices.chromosome]][gen2_id].name
+                                __unknown_reads_per_sample__[s] += 1
+                        for gen2_id in filter(lambda x: x not in gen1_ids, gen2_ids):
+                            if gen2_id != UNKNOWN_GENE_ID:
+                                __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
                             else:
-                                gen2_name = gen2_id
-                            chromosome_junctions[junc_id].extend([gen1_name, gen1_id, gen2_name, gen2_id])
-                        gen1_id = chromosome_junctions[junc_id][len(samples)+1]
-                        gen2_id = chromosome_junctions[junc_id][-1]
-                        if gen1_id != UNKNOWN_GENE_ID:
-                            __gene_set__[row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
-                        else:
-                            __unknown_reads_per_sample__[s] += 1
-                        if gen2_id != UNKNOWN_GENE_ID and gen2_id != gen1_id:
-                            __gene_set__[row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
+                                __unknown_reads_per_sample__[s] += 1
                         chromosome_junctions[junc_id][sample_index] += 1
                         row_no += 1
                     print_progress(num_rows, num_rows, '\t\t\t')
@@ -143,12 +143,13 @@ def write_summary(samples):
         f.write("##Summary for sample " + k + "\n")
         f.write("##This file indicates the number of reads in this sample (of junctions) that mapped to a certain gene as well as the TOTAL_READS value\n")
         f.write("##Format: <gene_id>=<number_of_reads>\n")
-    for id_to_gene in __gene_set__.values():
-        for gene_id, gen in id_to_gene.items():
-            for sample, count in gen.gene_reads_by_sample.items():
-                if count > 0:
-                    file_handlers[sample].write(gene_id+"="+str(count) + "\n")
-                    total_reads_per_sample[sample] += count
+    for strand, chromosome_to_id in __gene_set__.items():
+        for id_to_gene in chromosome_to_id.values():
+            for gene_id, gen in id_to_gene.items():
+                for sample, count in gen.gene_reads_by_sample.items():
+                    if count > 0:
+                        file_handlers[sample].write(gene_id+"="+str(count) + "\n")
+                        total_reads_per_sample[sample] += count
     for sample, count in __unknown_reads_per_sample__.items():
         if count > 0:
             file_handlers[sample].write("UNKNOWN=" + str(count) + "\n")
@@ -165,10 +166,8 @@ def process_samples(file_list):
     __unknown_reads_per_sample__ = map_to_dict(lambda x:x, lambda _:0, samples)
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
         o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)
-                + __out_delimiter__ + "gene_name (start)"
-                + __out_delimiter__+"gene_id (start)"
-                + __out_delimiter__ + "gene_name (end)"
-                + __out_delimiter__ + "gene_id (end)\n")
+                + __out_delimiter__+"gene_ids (start)"
+                + __out_delimiter__ + "gene_ids (end)\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
     chromosomes_found = set()
