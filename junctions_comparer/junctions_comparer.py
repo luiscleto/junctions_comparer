@@ -126,11 +126,14 @@ def read_junctions(samples, chromosomes):
                     for row in csv_reader:
                         if row_no % 10000 == 0:
                             print_progress(row_no, num_rows, '\t\t\t')
-                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + row[BEDIndices.start] + "_" + row[BEDIndices.end]
+                        block_sizes = map(int, str(row[BEDIndices.block_sizes]).split(","))
+                        true_start = int(row[BEDIndices.start]) + block_sizes[0]
+                        true_end = int(row[BEDIndices.end]) + block_sizes[1]
+                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + str(true_start) + "_" + str(true_end)
                         if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
-                            gen1_ids = find_gene(int(row[BEDIndices.start]), row[BEDIndices.chromosome], row[BEDIndices.strand])
-                            gen2_ids = find_gene(int(row[BEDIndices.end]), row[BEDIndices.chromosome], row[BEDIndices.strand])
+                            gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], row[BEDIndices.strand])
+                            gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], row[BEDIndices.strand])
                             chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids), __gene_list_delimiter__.join(gen2_ids)])
                         gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
                         gen2_ids = chromosome_junctions[junc_id][len(samples)+1].split(__gene_list_delimiter__)
