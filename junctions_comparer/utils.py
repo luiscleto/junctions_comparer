@@ -76,6 +76,8 @@ def split_csv(filename, output_dir):
         nk = str(key).replace("chr", "")
         if len(nk) == 1 and represents_int(nk):
             nk = "0" + nk
+        elif nk == "M":
+            nk = "MT"
         chromosomes_found.add(nk)
         with open(os.path.join(output_dir, os.path.splitext(os.path.basename(filename))[0] + "_%s.bed" % nk), "w+") as output:
             for row in rows:

@@ -132,7 +132,7 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
         __exon_list___[strand][chrom][__sorted_by_start_key___] = ([],[])
         __exon_list___[strand][chrom][__sorted_by_end_key___] = ([],[])
         return SpliceTypes.non_canonical
-    
+
     try:
         i = index(__exon_list___[strand][chrom][__sorted_by_end_key___][1], junc_start)
     except ValueError:
