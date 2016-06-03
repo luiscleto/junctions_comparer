@@ -75,8 +75,7 @@ def read_reference_genome(filename, sample_list):
                     __exon_list___[row[GTFIndices.strand]][chrom] = {__sorted_by_start_key___: list(), __sorted_by_end_key___: list()}
                 __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_start_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
                 __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_end_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
-                continue
-            elif str(row[GTFIndices.feature]) != 'gene':
+            if str(row[GTFIndices.feature]) != 'gene':
                 continue
             gen = GeneDescription(row, sample_list)
             if gen.chromosome not in __gene_set__[gen.strand]:
@@ -109,7 +108,7 @@ def write_chromosome_junctions_to_file(junctions):
 
 def find_next_exon(chrom, strand, pos_end):
     try:
-        i = index(__exon_list___[strand][chrom][__sorted_by_start_key___][0], pos_end)
+        i = find_gt(__exon_list___[strand][chrom][__sorted_by_start_key___][0], pos_end)
         return __exon_list___[strand][chrom][__sorted_by_start_key___][0][i], __exon_list___[strand][chrom][__sorted_by_start_key___][1][i]
     except ValueError:
         return -1, -1
@@ -234,17 +233,17 @@ def process_samples(file_list):
                 + __out_delimiter__ + "type\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
-    #chromosomes_found = set()
-    #for f in file_list:
-    #    print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
-    #    chromosomes_found |= split_csv(f, __temp_dir__)
-    #    print("\t[DONE]")
-    #if len(chromosomes_found) == 0:
-    #    e_print('\t[ERROR] No chromosomes found in junction files')
-    #    sys.exit(-1)
-    #print("[DONE]")
-    #chromosomes = sorted(list(chromosomes_found))
-    chromosomes = ['01']
+    chromosomes_found = set()
+    for f in file_list:
+        print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
+        chromosomes_found |= split_csv(f, __temp_dir__)
+        print("\t[DONE]")
+    if len(chromosomes_found) == 0:
+        e_print('\t[ERROR] No chromosomes found in junction files')
+        sys.exit(-1)
+    print("[DONE]")
+    chromosomes = sorted(list(chromosomes_found))
+    #chromosomes = ['01']
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
@@ -255,7 +254,7 @@ def process_samples(file_list):
     print("[DONE]")
     # Delete temporary files
     print("[INFO] Cleaning temporary files...")
-    clean_files(samples, chromosomes)
+    #clean_files(samples, chromosomes)
     print("[DONE]")
     print("[INFO] Finished without (apparent) errors")
 

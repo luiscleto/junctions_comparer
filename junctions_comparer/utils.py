@@ -15,34 +15,34 @@ def index(a, x):
 
 
 def find_lt(a, x):
-    """Find rightmost value less than x"""
+    """Locate the rightmost value less than x"""
     i = bisect_left(a, x)
     if i:
-        return a[i-1]
+        return i-1
     raise ValueError
 
 
 def find_le(a, x):
-    """Find rightmost value less than or equal to x"""
+    """Locate the rightmost value less than or equal to x"""
     i = bisect_right(a, x)
     if i:
-        return a[i-1]
+        return i-1
     raise ValueError
 
 
 def find_gt(a, x):
-    """Find leftmost value greater than x"""
+    """Locate the leftmost value greater than x"""
     i = bisect_right(a, x)
     if i != len(a):
-        return a[i]
+        return i
     raise ValueError
 
 
 def find_ge(a, x):
-    """Find leftmost item greater than or equal to x"""
+    """Locate the leftmost item greater than or equal to x"""
     i = bisect_left(a, x)
     if i != len(a):
-        return a[i]
+        return i
     raise ValueError
 
 
