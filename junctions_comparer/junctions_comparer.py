@@ -14,7 +14,7 @@ __out_delimiter__ = ","
 __gene_list_delimiter__ = "|"
 ## strand -> chromosome -> gene_id -> GeneDescription
 __gene_set__ = {'+': {}, '-': {}}
-## strand -> chromosome -> [(pos_start, pos_end, gene_id)]
+## strand -> chromosome -> ([pos_start], [pos_end], [gene_id]) (tuple of lists (sorted by pos_start and secondly by pos_end) to allow easy binary search. Same index in each list corresponds to same gene)
 __gene_intervals__ = {'+': {}, '-': {}}
 ## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
@@ -43,9 +43,19 @@ def find_gene(position_s, chromosome, strand):
     if chromosome not in __gene_intervals__[strand]:
         return [UNKNOWN_GENE_ID]
     gene_set = []
-    for s,e,gene_id in __gene_intervals__[strand][chromosome]:
+    try:
+        i = find_le(__gene_intervals__[strand][chromosome][0], position_s)
+    except ValueError:
+        return [UNKNOWN_GENE_ID]
+    while __gene_intervals__[strand][chromosome][0][i] <= position_s and i >= 0:
+        s = __gene_intervals__[strand][chromosome][0][i]
+        e = __gene_intervals__[strand][chromosome][1][i]
+        gene_id = __gene_intervals__[strand][chromosome][2][i]
+        i -= 1
         if s <= position_s <= e:
             gene_set.append(gene_id)
+        elif len(gene_set) > 0:
+            break
     if len(gene_set) == 0:
         return [UNKNOWN_GENE_ID]
     return gene_set
@@ -90,11 +100,13 @@ def read_reference_genome(filename, sample_list):
             else:
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
         print_progress(num_rows, num_rows, '\t')
-        print("\t[INFO] Sorting exon lists...")
+        print("\t[INFO] Sorting gene and exon lists...")
         for strand in ['+', '-']:
             for chromosome in __exon_list___[strand].keys():
                 __exon_list___[strand][chromosome][__sorted_by_start_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0]))
                 __exon_list___[strand][chromosome][__sorted_by_end_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1]))
+            for chromosome in __gene_intervals__[strand].keys():
+                __gene_intervals__[strand][chromosome] = zip(*sorted(__gene_intervals__[strand][chromosome], key=lambda x: (x[0], x[1])))
         print("\t[DONE]")
     print('[DONE]')
 
@@ -254,7 +266,7 @@ def process_samples(file_list):
     print("[DONE]")
     # Delete temporary files
     print("[INFO] Cleaning temporary files...")
-    #clean_files(samples, chromosomes)
+    clean_files(samples, chromosomes)
     print("[DONE]")
     print("[INFO] Finished without (apparent) errors")
 
