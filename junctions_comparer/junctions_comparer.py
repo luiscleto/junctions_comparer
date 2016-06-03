@@ -81,6 +81,9 @@ def read_reference_genome(filename, sample_list):
                 chrom = str(row[GTFIndices.seq_name]).replace("chr", "")
                 if len(chrom) == 1 and represents_int(chrom):
                     chrom = "0" + chrom
+                elif chrom == "M":
+                    chrom = "MT"
+
                 if chrom not in __exon_list___[row[GTFIndices.strand]]:
                     __exon_list___[row[GTFIndices.strand]][chrom] = {__sorted_by_start_key___: list(), __sorted_by_end_key___: list()}
                 __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_start_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
