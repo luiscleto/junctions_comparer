@@ -125,7 +125,7 @@ def read_junctions(samples, chromosomes):
 
 def clean_files(samples, chromosomes):
     for c in chromosomes:
-        for s in map(lambda sam: os.path.splitext(os.path.basename(sam))[0], samples):
+        for s in samples:
             file_name = os.path.join(__temp_dir__, s + "_" + c + ".bed")
             if os.path.exists(file_name):
                 os.remove(file_name)

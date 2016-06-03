@@ -8,6 +8,7 @@
             <path value="file://$PROJECT_DIR$/samples" />
             <path value="file://$PROJECT_DIR$/real_data" />
             <path value="file://$PROJECT_DIR$/sj_out" />
+            <path value="file://$PROJECT_DIR$/chrom_1_data" />
           </resourceRoots>
         </entryData>
       </entry>
