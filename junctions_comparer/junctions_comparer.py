@@ -18,11 +18,25 @@ __gene_set__ = {'+': {}, '-': {}}
 __gene_intervals__ = {'+': {}, '-': {}}
 ## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
+## strand -> chromosome -> sort_type -> [(pos_start, pos_end)] (list sorted by pos_start or pos_end to facilitate searches)
+__exon_list___ = {'+': {}, '-': {}}
+__sorted_by_start_key___ = 'sort_start'
+__sorted_by_end_key___ = 'sort_end'
+
 
 if len(sys.argv) < 4:
     e_print('[ERROR] Insufficient parameters provided!')
     print('Usage:')
     print('\tpython junctions_comparer.py <ref_genome.gtf> <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
+
+
+class __SpliceTypes:
+    def __init__(self):
+        pass
+    canonical = 0
+    non_canonical = 1
+
+SpliceTypes = __SpliceTypes()
 
 
 def find_gene(position_s, chromosome, strand):
@@ -53,6 +67,15 @@ def read_reference_genome(filename, sample_list):
                 continue
             elif len(row) == 0:
                 continue
+            elif str(row[GTFIndices.feature] == 'exon'):
+                chrom = str(row[GTFIndices.seq_name]).replace("chr", "")
+                if len(chrom) == 1 and represents_int(chrom):
+                    chrom = "0" + chrom
+                if chrom not in __exon_list___[row[GTFIndices.strand]]:
+                    __exon_list___[row[GTFIndices.strand]][chrom] = {__sorted_by_start_key___: list(), __sorted_by_end_key___: list()}
+                __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_start_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
+                __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_end_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
+                continue
             elif str(row[GTFIndices.feature]) != 'gene':
                 continue
             gen = GeneDescription(row, sample_list)
@@ -68,6 +91,12 @@ def read_reference_genome(filename, sample_list):
             else:
                 e_print("\t[WARNING] Duplicate gene ID found in GTF file: " + gen.id)
         print_progress(num_rows, num_rows, '\t')
+        print("\t[INFO] Sorting exon lists...")
+        for strand in ['+', '-']:
+            for chromosome in __exon_list___[strand].keys():
+                __exon_list___[strand][chromosome][__sorted_by_start_key___] = sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0])
+                __exon_list___[strand][chromosome][__sorted_by_end_key___] = sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1])
+        print("\t[DONE]")
     print('[DONE]')
 
 
@@ -104,7 +133,7 @@ def read_junctions(samples, chromosomes):
                             gen2_ids = find_gene(int(row[BEDIndices.end]), row[BEDIndices.chromosome], row[BEDIndices.strand])
                             chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids), __gene_list_delimiter__.join(gen2_ids)])
                         gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
-                        gen2_ids = chromosome_junctions[junc_id][-1].split(__gene_list_delimiter__)
+                        gen2_ids = chromosome_junctions[junc_id][len(samples)+1].split(__gene_list_delimiter__)
                         for gen1_id in gen1_ids:
                             if gen1_id != UNKNOWN_GENE_ID:
                                 __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
@@ -167,7 +196,8 @@ def process_samples(file_list):
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
         o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)
                 + __out_delimiter__+"gene_ids (start)"
-                + __out_delimiter__ + "gene_ids (end)\n")
+                + __out_delimiter__ + "gene_ids (end)"
+                + __out_delimiter__ + "type\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
     chromosomes_found = set()
