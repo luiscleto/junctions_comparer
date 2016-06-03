@@ -107,6 +107,30 @@ def write_chromosome_junctions_to_file(junctions):
         row.extend(value)
         writer.writerow(row)
 
+def find_next_exon(chrom, strand, pos_end):
+    for s, e in __exon_list___[strand][chrom][__sorted_by_start_key___]:
+        if s <= pos_end:
+            continue
+        else:
+            return s,e
+    return -1,-1
+
+def determine_splice_type(chrom, strand, junc_start, junc_end):
+    for s,e in __exon_list___[strand][chrom][__sorted_by_end_key___]:
+        if e < junc_start:
+            continue
+        elif e == junc_start:
+            next_ex_start, next_ex_end = find_next_exon(chrom, strand, e)
+            if next_ex_start == -1 and next_ex_end == -1:
+                continue # TODO handle this special case (no known exons after junction start exon)
+            if junc_end+1 == next_ex_start:
+                return SpliceTypes.canonical
+            # TODO detect types of non canonical junctions
+        else:
+            break
+
+    return SpliceTypes.non_canonical
+
 
 def read_junctions(samples, chromosomes):
     for c in chromosomes:
@@ -134,7 +158,9 @@ def read_junctions(samples, chromosomes):
                             chromosome_junctions[junc_id] = [0] * len(samples)
                             gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], row[BEDIndices.strand])
                             gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], row[BEDIndices.strand])
-                            chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids), __gene_list_delimiter__.join(gen2_ids)])
+                            chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids),
+                                                                  __gene_list_delimiter__.join(gen2_ids),
+                                                                  determine_splice_type(row[BEDIndices.chromosome], row[BEDIndices.strand], true_start, true_end)])
                         gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
                         gen2_ids = chromosome_junctions[junc_id][len(samples)+1].split(__gene_list_delimiter__)
                         for gen1_id in gen1_ids:
