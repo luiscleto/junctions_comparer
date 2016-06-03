@@ -18,7 +18,7 @@ __gene_set__ = {'+': {}, '-': {}}
 __gene_intervals__ = {'+': {}, '-': {}}
 ## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
-## strand -> chromosome -> sort_type -> [(pos_start, pos_end)] (list sorted by pos_start or pos_end to facilitate searches)
+## strand -> chromosome -> sort_type -> ([pos_start], [pos_end]) (tuple of lists to allow easy binary search. Same index in each list corresponds to same exon.
 __exon_list___ = {'+': {}, '-': {}}
 __sorted_by_start_key___ = 'sort_start'
 __sorted_by_end_key___ = 'sort_end'
@@ -94,8 +94,8 @@ def read_reference_genome(filename, sample_list):
         print("\t[INFO] Sorting exon lists...")
         for strand in ['+', '-']:
             for chromosome in __exon_list___[strand].keys():
-                __exon_list___[strand][chromosome][__sorted_by_start_key___] = sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0])
-                __exon_list___[strand][chromosome][__sorted_by_end_key___] = sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1])
+                __exon_list___[strand][chromosome][__sorted_by_start_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0]))
+                __exon_list___[strand][chromosome][__sorted_by_end_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1]))
         print("\t[DONE]")
     print('[DONE]')
 
@@ -108,15 +108,21 @@ def write_chromosome_junctions_to_file(junctions):
         writer.writerow(row)
 
 def find_next_exon(chrom, strand, pos_end):
-    for s, e in __exon_list___[strand][chrom][__sorted_by_start_key___]:
-        if s <= pos_end:
-            continue
-        else:
-            return s,e
-    return -1,-1
+    try:
+        i = index(__exon_list___[strand][chrom][__sorted_by_start_key___][0], pos_end)
+        return __exon_list___[strand][chrom][__sorted_by_start_key___][0][i], __exon_list___[strand][chrom][__sorted_by_start_key___][1][i]
+    except ValueError:
+        return -1, -1
 
 def determine_splice_type(chrom, strand, junc_start, junc_end):
-    for s,e in __exon_list___[strand][chrom][__sorted_by_end_key___]:
+    try:
+        i = index(__exon_list___[strand][chrom][__sorted_by_end_key___][1], junc_start)
+    except ValueError:
+        return SpliceTypes.non_canonical
+    while __exon_list___[strand][chrom][__sorted_by_end_key___][1][i] == junc_start:
+        s = __exon_list___[strand][chrom][__sorted_by_end_key___][0][i]
+        e = __exon_list___[strand][chrom][__sorted_by_end_key___][1][i]
+        i += 1
         if e < junc_start:
             continue
         elif e == junc_start:
@@ -128,7 +134,6 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
             # TODO detect types of non canonical junctions
         else:
             break
-
     return SpliceTypes.non_canonical
 
 
@@ -152,7 +157,7 @@ def read_junctions(samples, chromosomes):
                             print_progress(row_no, num_rows, '\t\t\t')
                         block_sizes = map(int, str(row[BEDIndices.block_sizes]).split(","))
                         true_start = int(row[BEDIndices.start]) + block_sizes[0]
-                        true_end = int(row[BEDIndices.end]) + block_sizes[1]
+                        true_end = int(row[BEDIndices.end]) - block_sizes[1]
                         junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + str(true_start) + "_" + str(true_end)
                         if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
@@ -229,16 +234,17 @@ def process_samples(file_list):
                 + __out_delimiter__ + "type\n")
     # Create smaller files with chromosome-specific junctions
     print("[INFO] Splitting BED files by chromosome...")
-    chromosomes_found = set()
-    for f in file_list:
-        print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
-        chromosomes_found |= split_csv(f, __temp_dir__)
-        print("\t[DONE]")
-    if len(chromosomes_found) == 0:
-        e_print('\t[ERROR] No chromosomes found in junction files')
-        sys.exit(-1)
-    print("[DONE]")
-    chromosomes = sorted(list(chromosomes_found))
+    #chromosomes_found = set()
+    #for f in file_list:
+    #    print("\t[INFO] Splitting sample: " + os.path.splitext(os.path.basename(f))[0])
+    #    chromosomes_found |= split_csv(f, __temp_dir__)
+    #    print("\t[DONE]")
+    #if len(chromosomes_found) == 0:
+    #    e_print('\t[ERROR] No chromosomes found in junction files')
+    #    sys.exit(-1)
+    #print("[DONE]")
+    #chromosomes = sorted(list(chromosomes_found))
+    chromosomes = ['01']
     # Per chromosome, process junctions in file and add them to .csv file
     print("[INFO] Collecting junction information by chromosome...")
     read_junctions(file_list, chromosomes)
