@@ -126,6 +126,13 @@ def find_next_exon(chrom, strand, pos_end):
         return -1, -1
 
 def determine_splice_type(chrom, strand, junc_start, junc_end):
+    if chrom not in __exon_list___[strand]:
+        e_print("\t\t\t[WARNING] Chromosome " + chrom + " found in BED file but not in GTF!")
+        # to avoid "spamming" warning
+        __exon_list___[strand][chrom][__sorted_by_start_key___] = ([],[])
+        __exon_list___[strand][chrom][__sorted_by_end_key___] = ([],[])
+        return SpliceTypes.non_canonical
+    
     try:
         i = index(__exon_list___[strand][chrom][__sorted_by_end_key___][1], junc_start)
     except ValueError:

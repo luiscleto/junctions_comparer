@@ -30,6 +30,9 @@ class GeneDescription:
         self.chromosome = str(row[GTFIndices.seq_name]).replace("chr", "")
         if len(self.chromosome) == 1 and represents_int(self.chromosome):
             self.chromosome = "0" + self.chromosome
+        elif self.chromosome == "M":
+            self.chromosome = "MT"
+
 
 class GeneAttributes:
     def __init__(self, attribute_str):
