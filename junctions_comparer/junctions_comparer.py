@@ -9,8 +9,10 @@ import argparse
 
 ## strand -> chromosome -> gene_id -> GeneDescription
 __gene_set__ = {'+': {}, '-': {}}
-## strand -> chromosome -> ([pos_start], [pos_end], [gene_id]) (tuple of lists (sorted by pos_start and secondly by pos_end) to allow easy binary search. Same index in each list corresponds to same gene)
+## strand -> chromosome -> [(pos_start, pos_end, gene_id)] (list of gene id and their positions) (deleted after computing disjoint intervals)
 __gene_intervals__ = {'+': {}, '-': {}}
+## strand -> chromosome -> ([pos_start], [pos_end], [[gene_ids]]) (last element is a list of all possible genes for that interval (due to overlaps))
+__gene_disjoint_intervals__ = {'+': {}, '-': {}}
 ## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
 ## strand -> chromosome -> sort_type -> ([pos_start], [pos_end]) (tuple of lists to allow easy binary search. Same index in each list corresponds to same exon.
@@ -65,32 +67,51 @@ class __SpliceTypes:
     intron_inclusion = "IS"
     alt_3_prime = "3'"
     alt_5_prime = "5'"
-    non_canonical = "NC"
+    unknown = "UK"
 
 
 SpliceTypes = __SpliceTypes()
 
 
 def find_gene(position_s, chromosome, strand):
-    if chromosome not in __gene_intervals__[strand]:
+    if chromosome not in __gene_disjoint_intervals__[strand]:
         return [UNKNOWN_GENE_ID]
-    gene_set = []
+
     try:
-        i = find_le(__gene_intervals__[strand][chromosome][0], position_s)
+        i = find_le(__gene_disjoint_intervals__[strand][chromosome][0], position_s)
     except ValueError:
         return [UNKNOWN_GENE_ID]
-    while __gene_intervals__[strand][chromosome][0][i] <= position_s and i >= 0:
-        s = __gene_intervals__[strand][chromosome][0][i]
-        e = __gene_intervals__[strand][chromosome][1][i]
-        gene_id = __gene_intervals__[strand][chromosome][2][i]
-        i -= 1
-        if s <= position_s <= e:
-            gene_set.append(gene_id)
-        elif len(gene_set) > 0:
-            break
-    if len(gene_set) == 0:
+
+    gene_set = filter(lambda g_id: __gene_set__[strand][chromosome][g_id].start_position <= position_s <= __gene_set__[strand][chromosome][g_id].end_position,
+                      __gene_disjoint_intervals__[strand][chromosome][2][i])
+
+    if not gene_set:
         return [UNKNOWN_GENE_ID]
+
     return gene_set
+
+
+def generate_disjoint_intervals(strand, chromosome):
+    __gene_disjoint_intervals__[strand][chromosome] = list()
+    current_start=-1
+    current_ids=list()
+    for s,e,g_id in __gene_intervals__[strand][chromosome]:
+        if current_start == -1:
+            current_start = s
+            current_end = e
+            current_ids.append(g_id)
+        elif s <= current_end:
+            current_ids.append(g_id)
+            if e > current_end:
+                current_end = e
+        else:
+            __gene_disjoint_intervals__[strand][chromosome].append((current_start, current_end, current_ids))
+            current_start = s
+            current_end = e
+            current_ids = [g_id]
+    if current_start != -1:
+        __gene_disjoint_intervals__[strand][chromosome].append((current_start, current_end, current_ids))
+    __gene_disjoint_intervals__[strand][chromosome] = zip(*__gene_disjoint_intervals__[strand][chromosome])
 
 
 def read_reference_genome(filename, sample_list):
@@ -141,7 +162,10 @@ def read_reference_genome(filename, sample_list):
                 __exon_list___[strand][chromosome][__sorted_by_start_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0]))
                 __exon_list___[strand][chromosome][__sorted_by_end_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1]))
             for chromosome in __gene_intervals__[strand].keys():
-                __gene_intervals__[strand][chromosome] = zip(*sorted(__gene_intervals__[strand][chromosome], key=lambda x: (x[0], x[1])))
+                __gene_intervals__[strand][chromosome] = sorted(__gene_intervals__[strand][chromosome], key=lambda x: (x[0], x[1]))
+                generate_disjoint_intervals(strand, chromosome)
+                del __gene_intervals__[strand][chromosome]
+            __gene_intervals__[strand].clear()
         print("\t[DONE]")
     print('[DONE]')
 
