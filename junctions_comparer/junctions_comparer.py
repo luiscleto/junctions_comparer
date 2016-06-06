@@ -12,14 +12,14 @@ __gene_set__ = {'+': {}, '-': {}}
 ## strand -> chromosome -> [(pos_start, pos_end, gene_id)] (list of gene id and their positions) (deleted after computing disjoint intervals)
 __gene_intervals__ = {'+': {}, '-': {}}
 ## strand -> chromosome -> ([pos_start], [pos_end], [[gene_ids]]) (last element is a list of all possible genes for that interval (due to overlaps))
+## it is a (sorted) tuple of lists to facilitate binary search
 __gene_disjoint_intervals__ = {'+': {}, '-': {}}
 ## sample -> unknown_read_count
 __unknown_reads_per_sample__ = {}
-## strand -> chromosome -> sort_type -> ([pos_start], [pos_end]) (tuple of lists to allow easy binary search. Same index in each list corresponds to same exon.
+## strand -> chromosome -> ([pos_start], [pos_end]) (tuple of lists to allow easy binary search. Same index in each list corresponds to same exon.
 __exon_list___ = {'+': {}, '-': {}}
-__sorted_by_start_key___ = 'sort_start'
-__sorted_by_end_key___ = 'sort_end'
-
+## strand -> chromosome -> ([pos_start], [pos_end], [(pos_start, pos_end)]) (last element is a list of all possible exons for that interval (due to overlaps))
+__exon_disjoint_intervals__ = {'+': {}, '-': {}}
 __total_reads_per_sample__ = {}
 
 
@@ -64,7 +64,7 @@ class __SpliceTypes:
         pass
     canonical = "C"
     exon_skip = "ES"
-    intron_inclusion = "IS"
+    intron_inclusion = "IN"
     alt_3_prime = "3'"
     alt_5_prime = "5'"
     unknown = "UK"
@@ -91,7 +91,8 @@ def find_gene(position_s, chromosome, strand):
     return gene_set
 
 
-def generate_disjoint_intervals(strand, chromosome):
+def generate_disjoint_gene_intervals(strand, chromosome):
+    global __gene_disjoint_intervals__
     __gene_disjoint_intervals__[strand][chromosome] = list()
     current_start=-1
     current_ids=list()
@@ -112,6 +113,32 @@ def generate_disjoint_intervals(strand, chromosome):
     if current_start != -1:
         __gene_disjoint_intervals__[strand][chromosome].append((current_start, current_end, current_ids))
     __gene_disjoint_intervals__[strand][chromosome] = zip(*__gene_disjoint_intervals__[strand][chromosome])
+
+
+def generate_disjoint_exon_intervals(strand, chromosome):
+    global __exon_disjoint_intervals__
+    __exon_disjoint_intervals__[strand][chromosome] = list()
+    current_start = -1
+    current_exons = list()
+    for s, e in __exon_list___[strand][chromosome]:
+        if current_start == -1:
+            current_start = s
+            current_end = e
+            current_exons.append((s,e))
+        elif s == current_exons[-1][0] and e == current_exons[-1][1]:
+            continue # ignore duplicates
+        elif s <= current_end:
+            current_exons.append((s,e))
+            if e > current_end:
+                current_end = e
+        else:
+            __exon_disjoint_intervals__[strand][chromosome].append((current_start, current_end, current_exons))
+            current_start = s
+            current_end = e
+            current_exons = [(s,e)]
+    if current_start != -1:
+        __exon_disjoint_intervals__[strand][chromosome].append((current_start, current_end, current_exons))
+    __exon_disjoint_intervals__[strand][chromosome] = zip(*__exon_disjoint_intervals__[strand][chromosome])
 
 
 def read_reference_genome(filename, sample_list):
@@ -138,9 +165,8 @@ def read_reference_genome(filename, sample_list):
                     chrom = "MT"
 
                 if chrom not in __exon_list___[row[GTFIndices.strand]]:
-                    __exon_list___[row[GTFIndices.strand]][chrom] = {__sorted_by_start_key___: list(), __sorted_by_end_key___: list()}
-                __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_start_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
-                __exon_list___[row[GTFIndices.strand]][chrom][__sorted_by_end_key___].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
+                    __exon_list___[row[GTFIndices.strand]][chrom] = list()
+                __exon_list___[row[GTFIndices.strand]][chrom].append((int(row[GTFIndices.start]), int(row[GTFIndices.end])))
             if str(row[GTFIndices.feature]) != 'gene':
                 continue
             gen = GeneDescription(row, sample_list)
@@ -159,11 +185,12 @@ def read_reference_genome(filename, sample_list):
         print("\t[INFO] Sorting gene and exon lists...")
         for strand in ['+', '-']:
             for chromosome in __exon_list___[strand].keys():
-                __exon_list___[strand][chromosome][__sorted_by_start_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_start_key___], key=lambda x: x[0]))
-                __exon_list___[strand][chromosome][__sorted_by_end_key___] = zip(*sorted(__exon_list___[strand][chromosome][__sorted_by_end_key___], key=lambda x: x[1]))
+                __exon_list___[strand][chromosome] = sorted(__exon_list___[strand][chromosome], key=lambda x: x[0])
+                generate_disjoint_exon_intervals(strand, chromosome)
+                __exon_list___[strand][chromosome] = zip(*__exon_list___[strand][chromosome])
             for chromosome in __gene_intervals__[strand].keys():
                 __gene_intervals__[strand][chromosome] = sorted(__gene_intervals__[strand][chromosome], key=lambda x: (x[0], x[1]))
-                generate_disjoint_intervals(strand, chromosome)
+                generate_disjoint_gene_intervals(strand, chromosome)
                 del __gene_intervals__[strand][chromosome]
             __gene_intervals__[strand].clear()
         print("\t[DONE]")
@@ -180,45 +207,81 @@ def write_chromosome_junctions_to_file(junctions):
         if any(v >= __min_reads__ for v in value[:-3]):
             writer2.writerow(row)
 
+
 def find_next_exon(chrom, strand, pos_end):
     try:
-        i = find_gt(__exon_list___[strand][chrom][__sorted_by_start_key___][0], pos_end)
-        return __exon_list___[strand][chrom][__sorted_by_start_key___][0][i], __exon_list___[strand][chrom][__sorted_by_start_key___][1][i]
+        i = find_gt(__exon_list___[strand][chrom][0], pos_end)
+        return __exon_list___[strand][chrom][0][i], __exon_list___[strand][chrom][1][i]
     except ValueError:
         return -1, -1
 
+
+def find_next_exons(chrom, strand, pos_end):
+    # try:
+    s,e = find_next_exon(chrom, strand, pos_end)
+    if s == -1 and e == -1:
+        return [(s,e)]
+
+    i = find_le(__exon_disjoint_intervals__[strand][chrom][0], e)
+    return __exon_disjoint_intervals__[strand][chrom][2][i]
+    # except ValueError: THIS SHOULD NOT BE POSSIBLE
+    #     return [(-1, -1)]
+
+
+def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
+    exon_start = junc_end+1
+    three_prime_found = False
+    for s,e in possible_first_exons: # find canonical first
+        possible_nexts = filter(lambda coords: coords[0] < exon_start <= coords[1],find_next_exons(chrom,strand,e))
+        if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
+            continue
+        exact_nexts = filter(lambda coords: exon_start == coords[1], possible_nexts)
+        if exact_nexts:
+            return SpliceTypes.canonical
+        three_prime_nexts = filter(lambda coords: exon_start > coords[0], possible_nexts)
+        if three_prime_nexts:
+            three_prime_found = True
+
+    if three_prime_found:
+        return SpliceTypes.alt_3_prime
+
+    # Try to find exon skip event or handle cases where first event is intron_inclusion
+    prefix = SpliceTypes.exon_skip + __gene_list_delimiter__ if possible_first_exons else ""
+
+    possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1], find_next_exons(chrom, strand, junc_end))
+    if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
+        return SpliceTypes.intron_inclusion
+    exact_nexts = filter(lambda coords: exon_start == coords[0], possible_nexts)
+    if exact_nexts:
+        return prefix + SpliceTypes.canonical
+    three_prime_nexts = filter(lambda coords: exon_start < coords[1], possible_nexts)
+    if three_prime_nexts:
+        return prefix + SpliceTypes.alt_3_prime
+
+    return SpliceTypes.intron_inclusion
+
+
 def determine_splice_type(chrom, strand, junc_start, junc_end):
-    if chrom not in __exon_list___[strand]:
+    if chrom not in __exon_disjoint_intervals__[strand]:
         e_print("\t\t\t[WARNING] Chromosome " + chrom + " found in BED file but not in GTF!")
         # to avoid "spamming" warning
-        __exon_list___[strand][chrom] = {__sorted_by_start_key___: ([],[]), __sorted_by_end_key___: ([],[])}
-        return SpliceTypes.non_canonical
+        __exon_list___[strand][chrom] = ([], [])
+        __exon_disjoint_intervals__[strand][chrom] = ([],[],[])
+        return SpliceTypes.intron_inclusion + __gene_list_delimiter__ + SpliceTypes.intron_inclusion
 
     try:
-        i = index(__exon_list___[strand][chrom][__sorted_by_end_key___][1], junc_start)
+        i = find_le(__exon_disjoint_intervals__[strand][chrom][0], junc_start)
+        possible_exon_set = filter(lambda coords: coords[0] < junc_start <= coords[1], __exon_disjoint_intervals__[strand][chrom][2][i])
+        precise_exons = filter(lambda coords: junc_start == coords[1], possible_exon_set)
+        if precise_exons:
+            return SpliceTypes.canonical + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, precise_exons)
+        five_prime_exons = filter(lambda coords: junc_start > coords[0], possible_exon_set)
+        if five_prime_exons:
+            return SpliceTypes.alt_5_prime + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, five_prime_exons)
     except ValueError:
-        return SpliceTypes.non_canonical
-    while __exon_list___[strand][chrom][__sorted_by_end_key___][1][i] == junc_start:
-        s = __exon_list___[strand][chrom][__sorted_by_end_key___][0][i]
-        e = __exon_list___[strand][chrom][__sorted_by_end_key___][1][i]
-        i += 1
-        if e < junc_start:
-            continue
-        elif e == junc_start:
-            next_ex_start, next_ex_end = find_next_exon(chrom, strand, e)
-            if next_ex_start == -1 and next_ex_end == -1:
-                continue # TODO handle this special case (no known exons after junction start exon)
-            if junc_end+1 == next_ex_start:
-                return SpliceTypes.canonical
-            try:
-                i2 = index(__exon_list___[strand][chrom][__sorted_by_end_key___][0], junc_end+1)
-                return SpliceTypes.exon_skip
-            except ValueError:
-                pass
-            # TODO detect types of non canonical junctions
-        else:
-            break
-    return SpliceTypes.non_canonical
+        pass
+
+    return SpliceTypes.intron_inclusion + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, [])
 
 
 def read_junctions(samples, chromosomes):
