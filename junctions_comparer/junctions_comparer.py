@@ -232,13 +232,13 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
     exon_start = junc_end+1
     three_prime_found = False
     for s,e in possible_first_exons: # find canonical first
-        possible_nexts = filter(lambda coords: coords[0] < exon_start <= coords[1],find_next_exons(chrom,strand,e))
+        possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1],find_next_exons(chrom,strand,e))
         if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
             continue
-        exact_nexts = filter(lambda coords: exon_start == coords[1], possible_nexts)
+        exact_nexts = filter(lambda coords: exon_start == coords[0], possible_nexts)
         if exact_nexts:
             return SpliceTypes.canonical
-        three_prime_nexts = filter(lambda coords: exon_start > coords[0], possible_nexts)
+        three_prime_nexts = filter(lambda coords: exon_start < coords[1], possible_nexts)
         if three_prime_nexts:
             three_prime_found = True
 
