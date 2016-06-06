@@ -56,10 +56,12 @@ def map_to_dict(key_function, value_function, values):
 
 def file_len(file_name):
     i = 0
+    blank_lines = 0
     with open(file_name) as f:
         for i, l in enumerate(f):
-            pass
-    return i + 1
+            if not l:
+                blank_lines += 1
+    return i + 1 - blank_lines
 
 
 def represents_int(s):

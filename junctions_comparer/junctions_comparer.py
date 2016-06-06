@@ -4,14 +4,9 @@ import errno
 from bed_features import BEDIndices
 from utils import *
 from gtf_features import *
+import argparse
 
-UNKNOWN_GENE_ID = "UNKNOWN"
 
-__temp_dir__ = "sj_tmp"
-__out_dir__ = "sj_out"
-__out_file__ = "results.csv"
-__out_delimiter__ = ","
-__gene_list_delimiter__ = "|"
 ## strand -> chromosome -> gene_id -> GeneDescription
 __gene_set__ = {'+': {}, '-': {}}
 ## strand -> chromosome -> ([pos_start], [pos_end], [gene_id]) (tuple of lists (sorted by pos_start and secondly by pos_end) to allow easy binary search. Same index in each list corresponds to same gene)
@@ -23,12 +18,41 @@ __exon_list___ = {'+': {}, '-': {}}
 __sorted_by_start_key___ = 'sort_start'
 __sorted_by_end_key___ = 'sort_end'
 
+__total_reads_per_sample__ = {}
 
-if len(sys.argv) < 4:
-    e_print('[ERROR] Insufficient parameters provided!')
-    print('Usage:')
-    print('\tpython junctions_comparer.py <ref_genome.gtf> <sample1.bed> <sample2.bed> [<sample3.bed> ...]')
 
+parser = argparse.ArgumentParser(description="Junction files analyser", usage='''junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
+                             [-o OUT_DIR] [-r RESULTS_FILE]
+                             [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
+                             [-gl GENE_DELIMITER]
+                             gtf_file bed_file bed_file [bed_file ...]
+''')#usage="%(prog)s [-h] [-nb | -q] [-n MIN_READS] gtf_file bed_file [bed_file ...]")
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-nb", "--no-bars", help="disables loading bars (use when redirecting output to file)", action="store_true")
+group.add_argument("-q", "--quiet", action="store_true")
+parser.add_argument("-n", "--min-reads", type=int, help="minimum number of reads supporting junction to pass filter (default: 3)")
+parser.add_argument("-t", "--temp-dir", help="directory where to keep temporary files (default: sj_tmp)")
+parser.add_argument("-o", "--out-dir", help="directory where to keep output files (default: sj_out)")
+parser.add_argument("-r", "--results-file", help="name for final result file (default: results.csv)")
+parser.add_argument("-rl", "--results-delimiter", help="delimiter for output CSV file (default: ,)")
+parser.add_argument("-u", "--unknown-id", help="name for unknown genes (default: UNKNOWN)")
+parser.add_argument("-gl", "--gene-delimiter", help="delimiter for gene lists in output (default: |)NOTE: MUST NOT BE THE SAME AS -rl")
+parser.add_argument("gtf_file", help="reference annotation file in GTF format")
+parser.add_argument('bed_file1', nargs=1, metavar='bed_file', help="junction annotation file in BED format")
+parser.add_argument('bed_file2', nargs='+', metavar='bed_file', help=argparse.SUPPRESS)
+
+UNKNOWN_GENE_ID = "UNKNOWN"
+__temp_dir__ = "sj_tmp"
+__out_dir__ = "sj_out"
+__out_file__ = "results.csv"
+__out_delimiter__ = ","
+__gene_list_delimiter__ = "|"
+
+parser.set_defaults(min_reads=3)
+
+args = parser.parse_args()
+bed_files = args.bed_file1
+bed_files.extend(args.bed_file2)
 
 class __SpliceTypes:
     def __init__(self):
@@ -132,8 +156,7 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
     if chrom not in __exon_list___[strand]:
         e_print("\t\t\t[WARNING] Chromosome " + chrom + " found in BED file but not in GTF!")
         # to avoid "spamming" warning
-        __exon_list___[strand][chrom][__sorted_by_start_key___] = ([],[])
-        __exon_list___[strand][chrom][__sorted_by_end_key___] = ([],[])
+        __exon_list___[strand][chrom] = {__sorted_by_start_key___: ([],[]), __sorted_by_end_key___: ([],[])}
         return SpliceTypes.non_canonical
 
     try:
@@ -170,6 +193,7 @@ def read_junctions(samples, chromosomes):
                 e_print("\t\t\t[WARNING] Sample " + s + " does not contain any junction reads for chromosome " + c + "!")
             else:
                 num_rows = file_len(file_name)
+                __total_reads_per_sample__[s] += num_rows
                 with open(file_name, 'rb') as csv_file:
                     csv_reader = csv.reader(csv_file, delimiter='\t')
                     row_no = 0
@@ -221,7 +245,6 @@ def clean_files(samples, chromosomes):
 
 
 def write_summary(samples):
-    total_reads_per_sample = map_to_dict(lambda x:x, lambda _:0, samples)
     file_handlers = map_to_dict(lambda x:x, lambda y:open(os.path.join(__out_dir__, y + ".read_counts.txt"),"w+"), samples)
     for k, f in file_handlers.items():
         f.write("##Summary for sample " + k + "\n")
@@ -233,19 +256,19 @@ def write_summary(samples):
                 for sample, count in gen.gene_reads_by_sample.items():
                     if count > 0:
                         file_handlers[sample].write(gene_id+"="+str(count) + "\n")
-                        total_reads_per_sample[sample] += count
     for sample, count in __unknown_reads_per_sample__.items():
         if count > 0:
             file_handlers[sample].write("UNKNOWN=" + str(count) + "\n")
-            total_reads_per_sample[sample] += count
     for k, f in file_handlers.items():
-        f.write("TOTAL_READS="+str(total_reads_per_sample[k])+"\n")
+        f.write("TOTAL_READS="+str(__total_reads_per_sample__[k])+"\n")
         f.close()
 
 
 def process_samples(file_list):
     # Initialize csv file
     samples = map(lambda sam: os.path.splitext(os.path.basename(sam))[0], file_list)
+    global __total_reads_per_sample__
+    __total_reads_per_sample__ = map_to_dict(lambda x:x, lambda _:0, samples)
     global __unknown_reads_per_sample__
     __unknown_reads_per_sample__ = map_to_dict(lambda x:x, lambda _:0, samples)
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
@@ -285,5 +308,5 @@ if not os.path.exists(__temp_dir__):
     os.makedirs(__temp_dir__)
 if not os.path.exists(__out_dir__):
     os.makedirs(__out_dir__)
-read_reference_genome(sys.argv[1], map(lambda sam: os.path.splitext(os.path.basename(sam))[0],sys.argv[2:]))
-process_samples(sorted(sys.argv[2:]))
+read_reference_genome(args.gtf_file, map(lambda sam: os.path.splitext(os.path.basename(sam))[0],bed_files))
+process_samples(sorted(bed_files))
