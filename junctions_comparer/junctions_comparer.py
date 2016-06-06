@@ -246,7 +246,7 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
         return SpliceTypes.alt_3_prime
 
     # Try to find exon skip event or handle cases where first event is intron_inclusion
-    prefix = SpliceTypes.exon_skip + __gene_list_delimiter__ if possible_first_exons else ""
+    prefix = (SpliceTypes.exon_skip + __gene_list_delimiter__) if possible_first_exons else ""
 
     possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1], find_next_exons(chrom, strand, junc_end))
     if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
