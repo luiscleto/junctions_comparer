@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description="Junction files analyser", usage=''
                              [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
                              [-gl GENE_DELIMITER]
                              gtf_file bed_file bed_file [bed_file ...]
-''')#usage="%(prog)s [-h] [-nb | -q] [-n MIN_READS] gtf_file bed_file [bed_file ...]")
+''')
 group = parser.add_mutually_exclusive_group()
 group.add_argument("-nb", "--no-bars", help="disables loading bars (use when redirecting output to file)", action="store_true")
 group.add_argument("-q", "--quiet", action="store_true")
