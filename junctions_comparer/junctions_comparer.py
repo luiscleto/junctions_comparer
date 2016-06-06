@@ -148,7 +148,7 @@ def write_chromosome_junctions_to_file(junctions):
         row = [key]
         row.extend(value)
         writer.writerow(row)
-        if any(v > __min_reads__ for v in value[:-3]):
+        if any(v >= __min_reads__ for v in value[:-3]):
             writer2.writerow(row)
 
 def find_next_exon(chrom, strand, pos_end):
