@@ -41,16 +41,19 @@ parser.add_argument("gtf_file", help="reference annotation file in GTF format")
 parser.add_argument('bed_file1', nargs=1, metavar='bed_file', help="junction annotation file in BED format")
 parser.add_argument('bed_file2', nargs='+', metavar='bed_file', help=argparse.SUPPRESS)
 
-UNKNOWN_GENE_ID = "UNKNOWN"
-__temp_dir__ = "sj_tmp"
-__out_dir__ = "sj_out"
-__out_file__ = "results.csv"
-__out_delimiter__ = ","
-__gene_list_delimiter__ = "|"
-
-parser.set_defaults(min_reads=3)
-
+parser.set_defaults(min_reads=3, temp_dir="sj_tmp", out_dir="sj_out", results_file="results.csv", results_delimiter=",", unknown_id="UNKNOWN", gene_delimiter="|")
 args = parser.parse_args()
+
+UNKNOWN_GENE_ID = args.unknown_id
+__temp_dir__ = args.temp_dir
+__out_dir__ = args.out_dir
+__out_file__ = args.results_file
+__out_delimiter__ = args.results_delimiter
+__gene_list_delimiter__ = args.gene_delimiter
+__min_reads__ = 3
+
+__out_file_filtered__ = __out_file__.rsplit('.', 1)[0] + '.filtered.' + __out_file__.rsplit('.', 1)[1]
+
 bed_files = args.bed_file1
 bed_files.extend(args.bed_file2)
 
@@ -140,10 +143,13 @@ def read_reference_genome(filename, sample_list):
 
 def write_chromosome_junctions_to_file(junctions):
     writer = csv.writer(open(os.path.join(__out_dir__, __out_file__), 'a'), delimiter=__out_delimiter__, lineterminator='\n')
+    writer2 = csv.writer(open(os.path.join(__out_dir__, __out_file_filtered__), 'a'), delimiter=__out_delimiter__, lineterminator='\n')
     for key, value in junctions.items():
         row = [key]
         row.extend(value)
         writer.writerow(row)
+        if any(v > __min_reads__ for v in value[:-3]):
+            writer2.writerow(row)
 
 def find_next_exon(chrom, strand, pos_end):
     try:
@@ -274,6 +280,16 @@ def process_samples(file_list):
     with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
         o.write("id"+__out_delimiter__+__out_delimiter__.join(samples)
                 + __out_delimiter__+"gene_ids (start)"
+                + __out_delimiter__ + "gene_ids (end)"
+                + __out_delimiter__ + "type\n")
+    with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
+        o.write("id" + __out_delimiter__ + __out_delimiter__.join(samples)
+                + __out_delimiter__ + "gene_ids (start)"
+                + __out_delimiter__ + "gene_ids (end)"
+                + __out_delimiter__ + "type\n")
+    with open(os.path.join(__out_dir__, __out_file_filtered__), "w+") as o:
+        o.write("id" + __out_delimiter__ + __out_delimiter__.join(samples)
+                + __out_delimiter__ + "gene_ids (start)"
                 + __out_delimiter__ + "gene_ids (end)"
                 + __out_delimiter__ + "type\n")
     # Create smaller files with chromosome-specific junctions
