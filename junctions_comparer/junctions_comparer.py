@@ -186,6 +186,11 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
                 continue # TODO handle this special case (no known exons after junction start exon)
             if junc_end+1 == next_ex_start:
                 return SpliceTypes.canonical
+            try:
+                i2 = index(__exon_list___[strand][chrom][__sorted_by_end_key___][0], junc_end+1)
+                return SpliceTypes.exon_skip
+            except ValueError:
+                pass
             # TODO detect types of non canonical junctions
         else:
             break
