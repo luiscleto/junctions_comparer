@@ -60,8 +60,13 @@ bed_files.extend(args.bed_file2)
 class __SpliceTypes:
     def __init__(self):
         pass
-    canonical = 0
-    non_canonical = 1
+    canonical = "C"
+    exon_skip = "ES"
+    intron_inclusion = "IS"
+    alt_3_prime = "3'"
+    alt_5_prime = "5'"
+    non_canonical = "NC"
+
 
 SpliceTypes = __SpliceTypes()
 
