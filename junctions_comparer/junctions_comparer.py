@@ -379,11 +379,6 @@ def process_samples(file_list):
                 + __out_delimiter__+"gene_ids (start)"
                 + __out_delimiter__ + "gene_ids (end)"
                 + __out_delimiter__ + "type\n")
-    with open(os.path.join(__out_dir__, __out_file__), "w+") as o:
-        o.write("id" + __out_delimiter__ + __out_delimiter__.join(samples)
-                + __out_delimiter__ + "gene_ids (start)"
-                + __out_delimiter__ + "gene_ids (end)"
-                + __out_delimiter__ + "type\n")
     with open(os.path.join(__out_dir__, __out_file_filtered__), "w+") as o:
         o.write("id" + __out_delimiter__ + __out_delimiter__.join(samples)
                 + __out_delimiter__ + "gene_ids (start)"
