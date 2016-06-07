@@ -52,7 +52,7 @@ __out_dir__ = args.out_dir
 __out_file__ = args.results_file
 __out_delimiter__ = args.results_delimiter
 __gene_list_delimiter__ = args.gene_delimiter
-__min_reads__ = 3
+__min_reads__ = args.min_reads
 
 __out_file_filtered__ = __out_file__.rsplit('.', 1)[0] + '.filtered.' + __out_file__.rsplit('.', 1)[1]
 
