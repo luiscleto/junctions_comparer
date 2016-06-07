@@ -111,3 +111,6 @@ sj_tmp
 sj_out
 real_data
 chrom_1_data
+gec_out
+gec_tmp
+gene_expression_files
