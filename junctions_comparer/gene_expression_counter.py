@@ -171,7 +171,9 @@ def process_reads(samples, chromosomes):
                         strand = str(row[3])
                         gene_set = find_included_genes(true_start, true_end, c, strand)
                         for g_id in gene_set:
-                            if g_id not in chromosome_gene_read_count:
+                            if g_id == UNKNOWN_GENE_ID:
+                                __unknown_reads_per_sample__[s] += 1
+                            elif g_id not in chromosome_gene_read_count:
                                 chromosome_gene_read_count[g_id] = 1
                             else:
                                 chromosome_gene_read_count[g_id] += 1
