@@ -222,8 +222,9 @@ def find_next_exons(chrom, strand, pos_end):
     if s == -1 and e == -1:
         return [(s,e)]
 
-    i = find_le(__exon_disjoint_intervals__[strand][chrom][0], e)
-    return __exon_disjoint_intervals__[strand][chrom][2][i]
+    i = find_le(__exon_disjoint_intervals__[strand][chrom][0], s)
+    #return only overlapping exons
+    return filter(lambda coords: max(coords[0], s) <= min(coords[1], e), __exon_disjoint_intervals__[strand][chrom][2][i])
     # except ValueError: THIS SHOULD NOT BE POSSIBLE
     #     return [(-1, -1)]
 
@@ -242,7 +243,8 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
         if three_prime_nexts:
             three_prime_found = True
 
-    if three_prime_found:
+
+    if three_prime_found and (not possible_first_exons):
         return SpliceTypes.alt_3_prime
 
     # Try to find exon skip event or handle cases where first event is intron_inclusion
@@ -250,10 +252,13 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
 
     possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1], find_next_exons(chrom, strand, junc_end))
     if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
-        return SpliceTypes.intron_inclusion
+        if not three_prime_found:
+            return SpliceTypes.intron_inclusion
     exact_nexts = filter(lambda coords: exon_start == coords[0], possible_nexts)
     if exact_nexts:
         return prefix + SpliceTypes.canonical
+    if three_prime_found:
+        return SpliceTypes.alt_3_prime
     three_prime_nexts = filter(lambda coords: exon_start < coords[1], possible_nexts)
     if three_prime_nexts:
         return prefix + SpliceTypes.alt_3_prime
