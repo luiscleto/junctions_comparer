@@ -229,11 +229,14 @@ def find_next_exons(chrom, strand, pos_end):
     #     return [(-1, -1)]
 
 
-def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons):
+def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons, junc_start = -1, first_is_alt_5 = False):
     exon_start = junc_end+1
     three_prime_found = False
     for s,e in possible_first_exons: # find canonical first
-        possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1],find_next_exons(chrom,strand,e))
+        if first_is_alt_5:
+            possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1],find_next_exons(chrom, strand, junc_start))
+        else:
+            possible_nexts = filter(lambda coords: coords[0] <= exon_start < coords[1],find_next_exons(chrom,strand,e))
         if (not possible_nexts) or (len(possible_nexts) == 1 and possible_nexts[0][0] == -1):
             continue
         exact_nexts = filter(lambda coords: exon_start == coords[0], possible_nexts)
@@ -282,7 +285,7 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
             return SpliceTypes.canonical + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, precise_exons)
         five_prime_exons = filter(lambda coords: junc_start > coords[0], possible_exon_set)
         if five_prime_exons:
-            return SpliceTypes.alt_5_prime + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, five_prime_exons)
+            return SpliceTypes.alt_5_prime + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, [(-1,-1)], junc_start, True)
     except ValueError:
         pass
 
