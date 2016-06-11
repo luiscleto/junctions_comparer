@@ -65,9 +65,19 @@ class __SpliceTypes:
     canonical = "C"
     exon_skip = "ES"
     intron_inclusion = "IN"
-    alt_3_prime = "3'"
-    alt_5_prime = "5'"
+    __alt_3_prime = "3'"
+    __alt_5_prime = "5'"
     unknown = "UK"
+    def alt_3_prime(self, strand):
+        if strand=="+":
+            return self.__alt_3_prime
+        else:
+            return self.__alt_5_prime
+    def alt_5_prime(self, strand):
+        if strand == "-":
+            return self.__alt_3_prime
+        else:
+            return self.__alt_5_prime
 
 
 SpliceTypes = __SpliceTypes()
@@ -248,7 +258,7 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons, 
 
 
     if three_prime_found and (not possible_first_exons):
-        return SpliceTypes.alt_3_prime
+        return SpliceTypes.alt_3_prime(strand)
 
     # Try to find exon skip event or handle cases where first event is intron_inclusion
     prefix = (SpliceTypes.exon_skip + __gene_list_delimiter__) if possible_first_exons else ""
@@ -261,10 +271,10 @@ def find_splice_for_end_junction(chrom, strand, junc_end, possible_first_exons, 
     if exact_nexts:
         return prefix + SpliceTypes.canonical
     if three_prime_found:
-        return SpliceTypes.alt_3_prime
+        return SpliceTypes.alt_3_prime(strand)
     three_prime_nexts = filter(lambda coords: exon_start < coords[1], possible_nexts)
     if three_prime_nexts:
-        return prefix + SpliceTypes.alt_3_prime
+        return prefix + SpliceTypes.alt_3_prime(strand)
 
     return SpliceTypes.intron_inclusion
 
@@ -285,7 +295,7 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
             return SpliceTypes.canonical + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, precise_exons)
         five_prime_exons = filter(lambda coords: junc_start > coords[0], possible_exon_set)
         if five_prime_exons:
-            return SpliceTypes.alt_5_prime + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, [(-1,-1)], junc_start, True)
+            return SpliceTypes.alt_5_prime(strand) + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, [(-1,-1)], junc_start, True)
     except ValueError:
         pass
 
@@ -319,9 +329,12 @@ def read_junctions(samples, chromosomes):
                             chromosome_junctions[junc_id] = [0] * len(samples)
                             gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], row[BEDIndices.strand])
                             gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], row[BEDIndices.strand])
+                            splice_type = determine_splice_type(row[BEDIndices.chromosome], row[BEDIndices.strand], true_start, true_end).split(__gene_list_delimiter__)
+                            if row[BEDIndices.strand] == "-":
+                                splice_type.reverse()
                             chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids),
                                                                   __gene_list_delimiter__.join(gen2_ids),
-                                                                  determine_splice_type(row[BEDIndices.chromosome], row[BEDIndices.strand], true_start, true_end)])
+                                                                  __gene_list_delimiter__.join(splice_type)])
                         gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
                         gen2_ids = chromosome_junctions[junc_id][len(samples)+1].split(__gene_list_delimiter__)
                         for gen1_id in gen1_ids:
