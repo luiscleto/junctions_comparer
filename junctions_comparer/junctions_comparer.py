@@ -381,16 +381,32 @@ def read_junctions(samples, chromosomes):
                                                                   __gene_list_delimiter__.join(splice_type)])
                         gen1_ids = chromosome_junctions[junc_id][len(samples)].split(__gene_list_delimiter__)
                         gen2_ids = chromosome_junctions[junc_id][len(samples)+1].split(__gene_list_delimiter__)
-                        for gen1_id in gen1_ids:
-                            if gen1_id != UNKNOWN_GENE_ID:
-                                __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
-                            else:
-                                __unknown_reads_per_sample__[s] += 1
-                        for gen2_id in filter(lambda x: x not in gen1_ids, gen2_ids):
-                            if gen2_id != UNKNOWN_GENE_ID:
-                                __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
-                            else:
-                                __unknown_reads_per_sample__[s] += 1
+                        if __stranded_analysis__:
+                            for gen1_id in gen1_ids:
+                                if gen1_id != UNKNOWN_GENE_ID:
+                                    __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
+                                else:
+                                    __unknown_reads_per_sample__[s] += 1
+                            for gen2_id in filter(lambda x: x not in gen1_ids, gen2_ids):
+                                if gen2_id != UNKNOWN_GENE_ID:
+                                    __gene_set__[row[BEDIndices.strand]][row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
+                                else:
+                                    __unknown_reads_per_sample__[s] += 1
+                        else:
+                            for gen1_id in gen1_ids:
+                                if gen1_id != UNKNOWN_GENE_ID and gen1_id in __gene_set__["+"][row[BEDIndices.chromosome]]:
+                                    __gene_set__["+"][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
+                                elif gen1_id != UNKNOWN_GENE_ID:
+                                    __gene_set__["-"][row[BEDIndices.chromosome]][gen1_id].gene_reads_by_sample[s] += 1
+                                else:
+                                    __unknown_reads_per_sample__[s] += 1
+                            for gen2_id in filter(lambda x: x not in gen1_ids, gen2_ids):
+                                if gen2_id != UNKNOWN_GENE_ID and gen2_id in __gene_set__["+"][row[BEDIndices.chromosome]]:
+                                    __gene_set__["+"][row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
+                                elif gen2_id != UNKNOWN_GENE_ID:
+                                    __gene_set__["-"][row[BEDIndices.chromosome]][gen2_id].gene_reads_by_sample[s] += 1
+                                else:
+                                    __unknown_reads_per_sample__[s] += 1
                         chromosome_junctions[junc_id][sample_index] += 1
                         row_no += 1
                     print_progress(num_rows, num_rows, '\t\t\t')
