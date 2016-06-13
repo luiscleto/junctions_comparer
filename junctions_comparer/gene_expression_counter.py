@@ -21,6 +21,7 @@ __total_reads_per_sample__ = {}
 
 parser = argparse.ArgumentParser(description="Gene read counter", usage='''gene_expression_counter.py [-h] [-nb | -q] [-t TEMP_DIR] [-o OUT_DIR]
                                   [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
+                                  [-a {stranded,unstranded}]
                                   gtf_file reads_file reads_file [reads_file ...]
 ''')
 group = parser.add_mutually_exclusive_group()
@@ -30,11 +31,12 @@ parser.add_argument("-t", "--temp-dir", help="directory where to keep temporary 
 parser.add_argument("-o", "--out-dir", help="directory where to keep output files (default: gec_out)")
 parser.add_argument("-rl", "--results-delimiter", help="delimiter for output TSV file (default: \\t)")
 parser.add_argument("-u", "--unknown-id", help="name for unknown genes (default: UNKNOWN)")
+parser.add_argument("-a", "--analysis", choices=['stranded','unstranded'], help="type of analysis (default: unstranded)")
 parser.add_argument("gtf_file", help="reference annotation file in GTF format")
 parser.add_argument('reads_file1', nargs=1, metavar='reads_file', help="read annotation file in custom format (chromosome<tab>read_start<tab>read_end<tab>strand)")
 parser.add_argument('reads_file2', nargs='+', metavar='reads_file', help=argparse.SUPPRESS)
 
-parser.set_defaults(temp_dir="gec_tmp", out_dir="gec_out", results_delimiter="\t", unknown_id="UNKNOWN")
+parser.set_defaults(temp_dir="gec_tmp", out_dir="gec_out", results_delimiter="\t", unknown_id="UNKNOWN", analysis="unstranded")
 args = parser.parse_args()
 
 UNKNOWN_GENE_ID = args.unknown_id
@@ -42,6 +44,7 @@ __temp_dir__ = args.temp_dir
 __out_dir__ = args.out_dir
 __out_delimiter__ = args.results_delimiter
 __out_extension__ = ".gene_expression.tsv"
+__stranded_analysis__ = args.analysis == "stranded"
 
 
 reads_file = args.reads_file1
@@ -169,7 +172,13 @@ def process_reads(samples, chromosomes):
                         true_start = int(row[1])
                         true_end = int(row[2])
                         strand = str(row[3])
-                        gene_set = find_included_genes(true_start, true_end, c, strand)
+                        if __stranded_analysis__:
+                            gene_set = find_included_genes(true_start, true_end, c, strand)
+                        else:
+                            gene_set = filter(lambda x: x!= UNKNOWN_GENE_ID,find_included_genes(true_start, true_end, c, "+"))
+                            gene_set.extend(filter(lambda x: x!= UNKNOWN_GENE_ID,find_included_genes(true_start, true_end, c, "-")))
+                            if not gene_set:
+                                gene_set = [UNKNOWN_GENE_ID]
                         for g_id in gene_set:
                             if g_id == UNKNOWN_GENE_ID:
                                 __unknown_reads_per_sample__[s] += 1

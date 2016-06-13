@@ -363,10 +363,14 @@ def read_junctions(samples, chromosomes):
                                 if row[BEDIndices.strand] == "-":
                                     splice_type.reverse()
                             else:
-                                gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], "+")
-                                gen1_ids.extend(find_gene(true_start, row[BEDIndices.chromosome], "-"))
-                                gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], "+")
-                                gen2_ids.extend(find_gene(true_end, row[BEDIndices.chromosome], "-"))
+                                gen1_ids = filter(lambda x: x!= UNKNOWN_GENE_ID, find_gene(true_start, row[BEDIndices.chromosome], "+"))
+                                gen1_ids.extend(filter(lambda x: x!= UNKNOWN_GENE_ID, find_gene(true_start, row[BEDIndices.chromosome], "-")))
+                                gen2_ids = filter(lambda x: x!= UNKNOWN_GENE_ID, find_gene(true_end, row[BEDIndices.chromosome], "+"))
+                                gen2_ids.extend(filter(lambda x: x!= UNKNOWN_GENE_ID, find_gene(true_end, row[BEDIndices.chromosome], "-")))
+                                if not gen1_ids:
+                                    gen1_ids = [UNKNOWN_GENE_ID]
+                                if not gen2_ids:
+                                    gen2_ids = [UNKNOWN_GENE_ID]
                                 splice_type = determine_splice_type(row[BEDIndices.chromosome], "+", true_start, true_end).split(__gene_list_delimiter__)
                                 if splice_type != __canonical_junction__ and splice_type != __exon_skip_junction__:
                                     splice_type2 = determine_splice_type(row[BEDIndices.chromosome], "-", true_start, true_end).split(__gene_list_delimiter__)
