@@ -7,7 +7,7 @@ A simple Python tool to compare junctions across several samples
 usage: junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
                              [-o OUT_DIR] [-r RESULTS_FILE]
                              [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
-                             [-gl GENE_DELIMITER]
+                             [-gl GENE_DELIMITER] [-a {stranded,unstranded}]
                              gtf_file bed_file bed_file [bed_file ...]
 ```
 
@@ -42,4 +42,6 @@ optional arguments:
   -gl GENE_DELIMITER, --gene-delimiter GENE_DELIMITER
                         delimiter for gene lists in output (default: |)NOTE:
                         MUST NOT BE THE SAME AS -rl
+  -a {stranded,unstranded}, --analysis {stranded,unstranded}
+                        type of analysis (default: unstranded)
   ```

@@ -23,10 +23,10 @@ __exon_disjoint_intervals__ = {'+': {}, '-': {}}
 __total_reads_per_sample__ = {}
 
 
-parser = argparse.ArgumentParser(description="Junction files analyser", usage='''junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
+parser = argparse.ArgumentParser(description="Junction files analyser", usage='''usage: junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
                              [-o OUT_DIR] [-r RESULTS_FILE]
                              [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
-                             [-gl GENE_DELIMITER]
+                             [-gl GENE_DELIMITER] [-a {stranded,unstranded}]
                              gtf_file bed_file bed_file [bed_file ...]
 ''')
 group = parser.add_mutually_exclusive_group()
@@ -39,11 +39,12 @@ parser.add_argument("-r", "--results-file", help="name for final result file (de
 parser.add_argument("-rl", "--results-delimiter", help="delimiter for output CSV file (default: ,)")
 parser.add_argument("-u", "--unknown-id", help="name for unknown genes (default: UNKNOWN)")
 parser.add_argument("-gl", "--gene-delimiter", help="delimiter for gene lists in output (default: |)NOTE: MUST NOT BE THE SAME AS -rl")
+parser.add_argument("-a", "--analysis", choices=['stranded','unstranded'], help="type of analysis (default: unstranded)")
 parser.add_argument("gtf_file", help="reference annotation file in GTF format")
 parser.add_argument('bed_file1', nargs=1, metavar='bed_file', help="junction annotation file in BED format")
 parser.add_argument('bed_file2', nargs='+', metavar='bed_file', help=argparse.SUPPRESS)
 
-parser.set_defaults(min_reads=3, temp_dir="sj_tmp", out_dir="sj_out", results_file="results.csv", results_delimiter=",", unknown_id="UNKNOWN", gene_delimiter="|")
+parser.set_defaults(min_reads=3, temp_dir="sj_tmp", out_dir="sj_out", results_file="results.csv", results_delimiter=",", unknown_id="UNKNOWN", gene_delimiter="|", analysis="unstranded")
 args = parser.parse_args()
 
 UNKNOWN_GENE_ID = args.unknown_id
@@ -53,6 +54,7 @@ __out_file__ = args.results_file
 __out_delimiter__ = args.results_delimiter
 __gene_list_delimiter__ = args.gene_delimiter
 __min_reads__ = args.min_reads
+__stranded_analysis__ = args.analysis == "stranded"
 
 __out_file_filtered__ = __out_file__.rsplit('.', 1)[0] + '.filtered.' + __out_file__.rsplit('.', 1)[1]
 
