@@ -23,7 +23,7 @@ __exon_disjoint_intervals__ = {'+': {}, '-': {}}
 __total_reads_per_sample__ = {}
 
 
-parser = argparse.ArgumentParser(description="Junction files analyser", usage='''usage: junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
+parser = argparse.ArgumentParser(description="Junction files analyser", usage='''junctions_comparer.py [-h] [-nb | -q] [-n MIN_READS] [-t TEMP_DIR]
                              [-o OUT_DIR] [-r RESULTS_FILE]
                              [-rl RESULTS_DELIMITER] [-u UNKNOWN_ID]
                              [-gl GENE_DELIMITER] [-a {stranded,unstranded}]
