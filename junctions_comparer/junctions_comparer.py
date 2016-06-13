@@ -320,7 +320,7 @@ def get_most_likely_splice(splice_type, splice_type2, likely_strand):
     if splice_type == splice_type2:
         return splice_type
     s1 = get_splice_score(splice_type, likely_strand=="+")
-    s2 = get_splice_score(splice_type, likely_strand=="-")
+    s2 = get_splice_score(splice_type2, likely_strand=="-")
     if s2 > s1:
         return splice_type2
     else:
