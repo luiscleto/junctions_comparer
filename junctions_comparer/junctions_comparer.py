@@ -84,6 +84,8 @@ class __SpliceTypes:
 
 SpliceTypes = __SpliceTypes()
 
+__canonical_junction__ = [SpliceTypes.canonical, SpliceTypes.canonical]
+__exon_skip_junction__ = [SpliceTypes.canonical, SpliceTypes.exon_skip, SpliceTypes.canonical]
 
 def find_gene(position_s, chromosome, strand):
     if chromosome not in __gene_disjoint_intervals__[strand]:
@@ -304,6 +306,27 @@ def determine_splice_type(chrom, strand, junc_start, junc_end):
     return SpliceTypes.intron_inclusion + __gene_list_delimiter__ + find_splice_for_end_junction(chrom, strand, junc_end, [])
 
 
+__type_to_score__ = {
+    SpliceTypes.canonical: 2,
+    SpliceTypes.alt_3_prime("+"): 0.5,
+    SpliceTypes.alt_5_prime("+"): 0.4,
+    SpliceTypes.exon_skip: -0.3,
+    SpliceTypes.intron_inclusion: -2
+}
+def get_splice_score(splice, likely_strand):
+    return sum(map(lambda x:__type_to_score__[x], splice)) + (0.2 if likely_strand else 0.0)
+
+def get_most_likely_splice(splice_type, splice_type2, likely_strand):
+    if splice_type == splice_type2:
+        return splice_type
+    s1 = get_splice_score(splice_type, likely_strand=="+")
+    s2 = get_splice_score(splice_type, likely_strand=="-")
+    if s2 > s1:
+        return splice_type2
+    else:
+        return splice_type
+
+
 def read_junctions(samples, chromosomes):
     for c in chromosomes:
         print('\t[INFO] Collecting info for chromosome ' + c + "...")
@@ -326,14 +349,29 @@ def read_junctions(samples, chromosomes):
                         block_sizes = map(int, str(row[BEDIndices.block_sizes]).split(","))
                         true_start = int(row[BEDIndices.start]) + block_sizes[0]
                         true_end = int(row[BEDIndices.end]) - block_sizes[1]
-                        junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + str(true_start) + "_" + str(true_end)
+                        if __stranded_analysis__:
+                            junc_id = row[BEDIndices.chromosome] + "_" + row[BEDIndices.strand] + "_" + str(true_start) + "_" + str(true_end)
+                        else:
+                            junc_id = row[BEDIndices.chromosome] + "_" + str(true_start) + "_" + str(true_end)
+
                         if junc_id not in chromosome_junctions:
                             chromosome_junctions[junc_id] = [0] * len(samples)
-                            gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], row[BEDIndices.strand])
-                            gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], row[BEDIndices.strand])
-                            splice_type = determine_splice_type(row[BEDIndices.chromosome], row[BEDIndices.strand], true_start, true_end).split(__gene_list_delimiter__)
-                            if row[BEDIndices.strand] == "-":
-                                splice_type.reverse()
+                            if __stranded_analysis__:
+                                gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], row[BEDIndices.strand])
+                                gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], row[BEDIndices.strand])
+                                splice_type = determine_splice_type(row[BEDIndices.chromosome], row[BEDIndices.strand], true_start, true_end).split(__gene_list_delimiter__)
+                                if row[BEDIndices.strand] == "-":
+                                    splice_type.reverse()
+                            else:
+                                gen1_ids = find_gene(true_start, row[BEDIndices.chromosome], "+")
+                                gen1_ids.extend(find_gene(true_start, row[BEDIndices.chromosome], "-"))
+                                gen2_ids = find_gene(true_end, row[BEDIndices.chromosome], "+")
+                                gen2_ids.extend(find_gene(true_end, row[BEDIndices.chromosome], "-"))
+                                splice_type = determine_splice_type(row[BEDIndices.chromosome], "+", true_start, true_end).split(__gene_list_delimiter__)
+                                if splice_type != __canonical_junction__ and splice_type != __exon_skip_junction__:
+                                    splice_type2 = determine_splice_type(row[BEDIndices.chromosome], "-", true_start, true_end).split(__gene_list_delimiter__)
+                                    splice_type2.reverse()
+                                    splice_type = get_most_likely_splice(splice_type, splice_type2, row[BEDIndices.strand])
                             chromosome_junctions[junc_id].extend([__gene_list_delimiter__.join(gen1_ids),
                                                                   __gene_list_delimiter__.join(gen2_ids),
                                                                   __gene_list_delimiter__.join(splice_type)])
