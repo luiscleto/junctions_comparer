@@ -182,7 +182,7 @@ def process_reads(samples, chromosomes):
                         for g_id in gene_set:
                             if g_id == UNKNOWN_GENE_ID:
                                 __unknown_reads_per_sample__[s] += 1
-                            elif g_id not in chromosome_gene_read_count:
+                            if g_id not in chromosome_gene_read_count:
                                 chromosome_gene_read_count[g_id] = 1
                             else:
                                 chromosome_gene_read_count[g_id] += 1
@@ -210,7 +210,7 @@ def write_summary(samples):
     for s in samples:
         writer = csv.writer(open(os.path.join(__out_dir__, s + __out_extension__), 'a'), delimiter=__out_delimiter__,
                             lineterminator='\n')
-        row1 = [UNKNOWN_GENE_ID, __unknown_reads_per_sample__[s], "_"]
+        row1 = ["TOTAL_" + UNKNOWN_GENE_ID, __unknown_reads_per_sample__[s], "_"]
         row2 = ["TOTAL", __total_reads_per_sample__[s], "_"]
         writer.writerow(row1)
         writer.writerow(row2)
