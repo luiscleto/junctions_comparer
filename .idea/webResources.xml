@@ -11,6 +11,8 @@
             <path value="file://$PROJECT_DIR$/chrom_1_data" />
             <path value="file://$PROJECT_DIR$/gene_expression_files" />
             <path value="file://$PROJECT_DIR$/gec_out" />
+            <path value="file://$PROJECT_DIR$/new_gef" />
+            <path value="file://$PROJECT_DIR$/new_alignment" />
           </resourceRoots>
         </entryData>
       </entry>
