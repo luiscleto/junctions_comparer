@@ -76,10 +76,14 @@ def split_csv(filename, output_dir):
     chromosomes_found = set()
     for key, rows in groupby(csv.reader(open(filename), delimiter='\t'), lambda r: r[0]):
         nk = str(key).replace("chr", "")
+        if "_" in nk:
+            nk = nk.split("_")[0]
         if len(nk) == 1 and represents_int(nk):
             nk = "0" + nk
         elif nk == "M":
             nk = "MT"
+        if nk == "Un":
+            continue
         chromosomes_found.add(nk)
         with open(os.path.join(output_dir, os.path.splitext(os.path.basename(filename))[0] + "_%s.bed" % nk), "w+") as output:
             for row in rows:
